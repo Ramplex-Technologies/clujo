@@ -155,28 +155,18 @@ export class TaskGraphBuilderHelper<
     const temp = new Set<string>();
 
     const visit = (taskId: string) => {
-      if (temp.has(taskId)) {
-        throw new Error(`Circular dependency detected involving task ${taskId}`);
-      }
+      if (temp.has(taskId)) throw new Error(`Circular dependency detected involving task ${taskId}`);
       if (!visited.has(taskId)) {
         temp.add(taskId);
         const task = this.tasks.get(taskId);
         if (!task) throw new Error(`Task ${taskId} not found`);
-
-        for (const depId of task.dependencies) {
-          visit(depId);
-        }
-
+        for (const depId of task.dependencies) visit(depId);
         temp.delete(taskId);
         visited.add(taskId);
         this.order.push(taskId);
       }
     };
 
-    for (const taskId of this.tasks.keys()) {
-      if (!visited.has(taskId)) {
-        visit(taskId);
-      }
-    }
+    for (const taskId of this.tasks.keys()) if (!visited.has(taskId)) visit(taskId);
   }
 }
