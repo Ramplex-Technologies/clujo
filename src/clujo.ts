@@ -104,9 +104,9 @@ export class Clujo<TDependencies, TContext extends object, TTaskMap extends Task
     return this;
   }
 
-  async stop(): Promise<void> {
+  async stop(timeout = 5000): Promise<void> {
     if (!this.hasStarted) throw new Error("Cannot stop a Clujo that has not been started.");
-    await this.cron.stop();
+    await this.cron.stop(timeout);
   }
 
   async trigger(): Promise<Required<TContext>> {

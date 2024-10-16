@@ -14,15 +14,30 @@ export class Cron implements ICron {
     this.job = new Croner(this.cronExpression, this.cronOptions, handler);
   }
 
-  stop(): Promise<void> {
+  stop(timeout: number): Promise<void> {
     return new Promise<void>((resolve) => {
+      const startTime = Date.now();
       const checkAndStop = () => {
-        if (this.job?.isBusy()) setTimeout(checkAndStop, 100);
-        else {
-          this.job?.stop();
+        if (!this.job) {
+          resolve(); // resolve if job has cleared
+          return;
+        }
+
+        if (this.job.isBusy()) {
+          if (Date.now() - startTime > timeout) {
+            this.job.stop();
+            this.job = null;
+            resolve();
+            return;
+          }
+          setTimeout(checkAndStop, 100);
+        } else {
+          this.job.stop();
+          this.job = null;
           resolve();
         }
       };
+
       checkAndStop();
     });
   }

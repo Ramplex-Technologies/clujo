@@ -134,12 +134,13 @@ export interface IClujo<TDependencies, TContext, TTaskMap extends TaskMap<TDepen
    */
   start(options?: StartOptions<TContext>): IClujo<TDependencies, TContext, TTaskMap>;
   /**
-   * Stops the Clujo execution. If the Clujo is currently running, it will complete the current task before stopping.
+   * Stops the Clujo execution, giving tasks timeout milliseconds to finish before forcefully stopping.
    *
+   * @param {number} timeout - The maximum time in milliseconds to wait for the Clujo to stop before forcefully stopping. If 0, will not wait. Defaults to 5000ms.
    * @returns {Promise<void>} A promise that resolves when the Clujo has been stopped.
-   * @throws {Error} If the Clujo has not been started or has no tasks to run.
+   * @throws {Error} If the Clujo has not been started
    */
-  stop(): Promise<void>;
+  stop(timeout: number): Promise<void>;
   /**
    * Triggers an immediate execution of the Clujo tasks, independent of the schedule. Can be invoked without starting the Clujo.
    *
