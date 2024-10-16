@@ -23,14 +23,7 @@
     "indentWidth": 2,
     "lineWidth": 120,
     "lineEnding": "lf",
-    "include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.jsonc"],
-    "ignore": [
-      "node_modules/*",
-      "*.config.*",
-      "*.json",
-      "tsconfig.json",
-      ".turbo",
-      "**/*.test.ts"
-    ]
+    "include": ["src/**/*.ts", "**/*.js", "**/*.jsonc"],
+    "ignore": ["node_modules/*", "dist/*", "tsconfig.json", "**/*.test.ts"]
   }
 }
