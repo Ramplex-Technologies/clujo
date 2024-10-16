@@ -1,0 +1,41 @@
+{
+	"name": "clujo",
+	"author": "Rami Pellumbi",
+	"description": "A lightweight task orchestration library for managing interdependent tasks with automatic parallel execution on a cron schedule.",
+	"keywords": [],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/ramipellumbi/clujo/tree/main"
+	},
+	"license": "MIT",
+	"private": false,
+	"version": "0.1.0",
+	"main": "./dist/index.js",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.ts",
+	"files": ["dist", "package.json"],
+	"exports": {
+		".": {
+			"require": "./dist/index.js",
+			"import": "./dist/index.mjs",
+			"ty7pes": "./dist/index.d.ts"
+		}
+	},
+	"scripts": {
+		"build": "tsup ./src",
+		"dev": "tsup --watch",
+		"lint": "biome check --write ./src"
+	},
+	"dependencies": {
+		"croner": "^8.1.2",
+		"ioredis": "^5.4.1",
+		"redis-semaphore": "^5.6.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.2",
+		"@types/node": "^22.5.5",
+		"ts-node": "^10.9.2",
+		"tsup": "^8.3.0",
+		"typescript": "^5.6.2"
+	}
+}

@@ -1,0 +1,13 @@
+*.DS_STORE
+
+# Dependency directories
+node_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Output of 'npm pack'
+*.tgz
