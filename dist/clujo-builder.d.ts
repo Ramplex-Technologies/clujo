@@ -21,7 +21,7 @@ import './task-graph.types.js';
  *   .setContext({ initialValue: 0 })                         // initial context value (can also be a function returning a value)
  *   .setRetryPolicy({ maxRetries: 3, retryDelayMs: 1000 })   // global retry policy (can be overriden by task)
  *   .runOnStartup()                                          // run this task immediately when the Clujo starts
- *   .build();                                                // build the Clujo instance
+ *   .build();                                                // build the Clujo instance -- tasks can now be added
  * ```
  *
  * @see {@link IClujoStart} for the initial interface implemented by ClujoBuilder.

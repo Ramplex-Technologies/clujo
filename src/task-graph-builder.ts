@@ -8,6 +8,7 @@ import type {
   RetryPolicy,
   TaskMap,
   TaskOptions,
+  TaskStatus,
 } from "./task-graph.types";
 
 const sleep = promisify(setTimeout);
@@ -15,6 +16,7 @@ const sleep = promisify(setTimeout);
 class Task<TCommonInput, TContextInput, TReturn> implements ITask<TCommonInput, TContextInput, TReturn> {
   private readonly _dependencies: string[] = [];
   private _retryPolicy: RetryPolicy = { maxRetries: 0, retryDelayMs: 0 };
+  private _status: TaskStatus = "pending";
 
   constructor(
     private readonly options: TaskOptions<string, TCommonInput, TContextInput, TReturn, string | number | symbol>,
@@ -24,6 +26,10 @@ class Task<TCommonInput, TContextInput, TReturn> implements ITask<TCommonInput, 
 
   public get id() {
     return this.options.id;
+  }
+
+  public get status() {
+    return this._status;
   }
 
   public get dependencies() {
@@ -38,7 +44,9 @@ class Task<TCommonInput, TContextInput, TReturn> implements ITask<TCommonInput, 
     // we retry maxRetries times on top of the initial attempt
     for (let attempt = 0; attempt < this._retryPolicy.maxRetries + 1; attempt++) {
       try {
-        return await this.options.execute({ deps, ctx });
+        const result = await this.options.execute({ deps, ctx });
+        this._status = "completed";
+        return result;
       } catch (err) {
         if (attempt === this._retryPolicy.maxRetries) {
           console.error(`Task failed after ${attempt + 1} attempts: ${err}`);
@@ -49,6 +57,7 @@ class Task<TCommonInput, TContextInput, TReturn> implements ITask<TCommonInput, 
           } catch (error) {
             console.error(`Error in task error handler for ${this.options.id}: ${error}`);
           }
+          this._status = "failed";
           throw error;
         }
         console.error(`Task failed, retrying (attempt ${attempt + 1}/${this._retryPolicy.maxRetries}): ${err}`);

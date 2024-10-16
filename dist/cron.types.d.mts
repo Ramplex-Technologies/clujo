@@ -8,14 +8,11 @@ interface ICron {
     /**
      * Stops the cron job. If the job is currently running, it will wait for the job to finish before stopping it.
      * This can be safely invoked even if the job hasn't been started.
+     *
+     * @param timeout The maximum time (in ms) to wait for the job to finish before stopping it forcefully.
+     * @returns A promise that resolves when the job has been stopped
      */
-    stop(): Promise<void>;
-    /**
-     * Triggers the cron job manually.
-     * @returns {Promise<void>} A promise that resolves when the job has been triggered.
-     * @throws {Error} If attempting to trigger a job that hasn't been started.
-     */
-    trigger(): Promise<void>;
+    stop(timeout: number): Promise<void>;
 }
 
 export type { ICron };

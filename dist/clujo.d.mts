@@ -11,6 +11,7 @@ declare class Clujo<TDependencies, TContext extends object, TTaskMap extends Tas
     private readonly retryPolicy;
     private readonly runImmediately;
     private readonly taskGraphBuilder;
+    private taskGraph;
     private hasStarted;
     constructor(id: string, cron: ICron, retryPolicy: RetryPolicy, runImmediately: boolean, dependencies: TDependencies, contextValueOrFactory: undefined | TContext | (() => TContext | Promise<TContext>));
     addTask<TTaskId extends string, TExecuteReturn>(input: {
@@ -27,8 +28,8 @@ declare class Clujo<TDependencies, TContext extends object, TTaskMap extends Tas
         }>>;
     }>;
     start(options?: StartOptions<TContext>): IClujo<TDependencies, TContext, TTaskMap>;
-    stop(): Promise<void>;
-    trigger(): Promise<void>;
+    stop(timeout?: number): Promise<void>;
+    trigger(): Promise<Required<TContext>>;
     private tryAcquire;
 }
 

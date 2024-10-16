@@ -32,9 +32,15 @@ var Context = class {
     this.reset(initialObject);
     this.updateQueue = Promise.resolve();
   }
+  /**
+   * Gets the current state of the managed object.
+   */
   get value() {
     return this.object;
   }
+  /**
+   * Resets the context to its initial state or a new initial object.
+   */
   reset(initialObject) {
     if (initialObject) {
       this.object = { initial: { ...initialObject } };
@@ -42,6 +48,9 @@ var Context = class {
       this.object = { initial: void 0 };
     }
   }
+  /**
+   * Asynchronously updates the context with new values. Ensures that updates are applied in the order they are called.
+   */
   update(updateValue) {
     this.updateQueue = this.updateQueue.then(() => {
       this.object = { ...this.object, ...updateValue };
@@ -78,11 +87,17 @@ var TaskGraph = class {
           const result = await task.run(this.taskDependencies, this.context.value);
           await this.context.update({ [taskId]: result });
           completed.add(taskId);
+        } catch {
+          completed.add(taskId);
         } finally {
           running.delete(taskId);
           for (const [id, t] of this.tasks) {
-            if (!completed.has(id) && !running.has(id) && t.dependencies.every((depId) => completed.has(depId))) {
-              readyTasks.add(id);
+            if (!completed.has(id) && !running.has(id)) {
+              const canRun = t.dependencies.every((depId) => {
+                const depTask = this.tasks.get(depId);
+                return depTask && completed.has(depId) && depTask.status === "completed";
+              });
+              if (canRun) readyTasks.add(id);
             }
           }
         }
@@ -95,6 +110,8 @@ var TaskGraph = class {
         }
         if (running.size > 0) {
           await Promise.race(running.values());
+        } else {
+          break;
         }
       }
       return this.context.value;
@@ -109,10 +126,14 @@ var Task = class {
     this.options = options;
     this._dependencies = [];
     this._retryPolicy = { maxRetries: 0, retryDelayMs: 0 };
+    this._status = "pending";
     if (options.retryPolicy) this._retryPolicy = options.retryPolicy;
   }
   get id() {
     return this.options.id;
+  }
+  get status() {
+    return this._status;
   }
   get dependencies() {
     return this._dependencies;
@@ -123,7 +144,9 @@ var Task = class {
   async run(deps, ctx) {
     for (let attempt = 0; attempt < this._retryPolicy.maxRetries + 1; attempt++) {
       try {
-        return await this.options.execute({ deps, ctx });
+        const result = await this.options.execute({ deps, ctx });
+        this._status = "completed";
+        return result;
       } catch (err) {
         if (attempt === this._retryPolicy.maxRetries) {
           console.error(`Task failed after ${attempt + 1} attempts: ${err}`);
@@ -134,6 +157,7 @@ var Task = class {
           } catch (error2) {
             console.error(`Error in task error handler for ${this.options.id}: ${error2}`);
           }
+          this._status = "failed";
           throw error;
         }
         console.error(`Task failed, retrying (attempt ${attempt + 1}/${this._retryPolicy.maxRetries}): ${err}`);

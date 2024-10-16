@@ -10,9 +10,15 @@ var Context = class {
     this.reset(initialObject);
     this.updateQueue = Promise.resolve();
   }
+  /**
+   * Gets the current state of the managed object.
+   */
   get value() {
     return this.object;
   }
+  /**
+   * Resets the context to its initial state or a new initial object.
+   */
   reset(initialObject) {
     if (initialObject) {
       this.object = { initial: { ...initialObject } };
@@ -20,6 +26,9 @@ var Context = class {
       this.object = { initial: void 0 };
     }
   }
+  /**
+   * Asynchronously updates the context with new values. Ensures that updates are applied in the order they are called.
+   */
   update(updateValue) {
     this.updateQueue = this.updateQueue.then(() => {
       this.object = { ...this.object, ...updateValue };
@@ -56,11 +65,17 @@ var TaskGraph = class {
           const result = await task.run(this.taskDependencies, this.context.value);
           await this.context.update({ [taskId]: result });
           completed.add(taskId);
+        } catch {
+          completed.add(taskId);
         } finally {
           running.delete(taskId);
           for (const [id, t] of this.tasks) {
-            if (!completed.has(id) && !running.has(id) && t.dependencies.every((depId) => completed.has(depId))) {
-              readyTasks.add(id);
+            if (!completed.has(id) && !running.has(id)) {
+              const canRun = t.dependencies.every((depId) => {
+                const depTask = this.tasks.get(depId);
+                return depTask && completed.has(depId) && depTask.status === "completed";
+              });
+              if (canRun) readyTasks.add(id);
             }
           }
         }
@@ -73,6 +88,8 @@ var TaskGraph = class {
         }
         if (running.size > 0) {
           await Promise.race(running.values());
+        } else {
+          break;
         }
       }
       return this.context.value;
@@ -87,10 +104,14 @@ var Task = class {
     this.options = options;
     this._dependencies = [];
     this._retryPolicy = { maxRetries: 0, retryDelayMs: 0 };
+    this._status = "pending";
     if (options.retryPolicy) this._retryPolicy = options.retryPolicy;
   }
   get id() {
     return this.options.id;
+  }
+  get status() {
+    return this._status;
   }
   get dependencies() {
     return this._dependencies;
@@ -101,7 +122,9 @@ var Task = class {
   async run(deps, ctx) {
     for (let attempt = 0; attempt < this._retryPolicy.maxRetries + 1; attempt++) {
       try {
-        return await this.options.execute({ deps, ctx });
+        const result = await this.options.execute({ deps, ctx });
+        this._status = "completed";
+        return result;
       } catch (err) {
         if (attempt === this._retryPolicy.maxRetries) {
           console.error(`Task failed after ${attempt + 1} attempts: ${err}`);
@@ -112,6 +135,7 @@ var Task = class {
           } catch (error2) {
             console.error(`Error in task error handler for ${this.options.id}: ${error2}`);
           }
+          this._status = "failed";
           throw error;
         }
         console.error(`Task failed, retrying (attempt ${attempt + 1}/${this._retryPolicy.maxRetries}): ${err}`);
@@ -221,10 +245,11 @@ var Clujo = class {
   start(options) {
     if (this.hasStarted) throw new Error("Cannot start a Clujo that has already been started.");
     if (!this.taskGraphBuilder.size) throw new Error("Cannot start a Clujo with no added tasks.");
-    const runTasks = this.taskGraphBuilder.build().run;
+    this.taskGraph = this.taskGraphBuilder.build();
     const redis = options?.redis;
     const executeTasksAndCompletionHandler = async () => {
-      const finalContext = await runTasks();
+      if (!this.taskGraph) throw new Error("Task graph not initialized");
+      const finalContext = await this.taskGraph.run();
       if (options?.completionHandler) await options.completionHandler(finalContext);
     };
     const handler = async () => {
@@ -246,13 +271,14 @@ var Clujo = class {
     if (this.runImmediately) this.trigger();
     return this;
   }
-  async stop() {
+  async stop(timeout = 5e3) {
     if (!this.hasStarted) throw new Error("Cannot stop a Clujo that has not been started.");
-    await this.cron.stop();
+    await this.cron.stop(timeout);
   }
   async trigger() {
-    if (!this.hasStarted) throw new Error("Cannot trigger a Clujo that has not been started.");
-    await this.cron.trigger();
+    if (!this.taskGraphBuilder.size) throw new Error("Cannot trigger a Clujo with no added tasks.");
+    if (!this.taskGraph) this.taskGraph = this.taskGraphBuilder.build();
+    return await this.taskGraph.run();
   }
   async tryAcquire(redis, lockOptions) {
     const mutex = new Mutex(redis, this.id, lockOptions);
@@ -283,21 +309,30 @@ var Cron = class {
     if (this.job) throw new Error("Attempting to start an already started job");
     this.job = new Croner(this.cronExpression, this.cronOptions, handler);
   }
-  stop() {
+  stop(timeout) {
     return new Promise((resolve) => {
+      const startTime = Date.now();
       const checkAndStop = () => {
-        if (this.job?.isBusy()) setTimeout(checkAndStop, 100);
-        else {
-          this.job?.stop();
+        if (!this.job) {
+          resolve();
+          return;
+        }
+        if (this.job.isBusy()) {
+          if (Date.now() - startTime > timeout) {
+            this.job.stop();
+            this.job = null;
+            resolve();
+            return;
+          }
+          setTimeout(checkAndStop, 100);
+        } else {
+          this.job.stop();
+          this.job = null;
           resolve();
         }
       };
       checkAndStop();
     });
-  }
-  async trigger() {
-    if (!this.job) throw new Error("Attempting to trigger a non-started job");
-    await this.job.trigger();
   }
 };
 

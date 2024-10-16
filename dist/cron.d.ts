@@ -7,8 +7,7 @@ declare class Cron implements ICron {
     private job;
     constructor(cronExpression: string, cronOptions?: CronOptions | undefined);
     start(handler: () => Promise<void> | void): void;
-    stop(): Promise<void>;
-    trigger(): Promise<void>;
+    stop(timeout: number): Promise<void>;
 }
 
 export { Cron };

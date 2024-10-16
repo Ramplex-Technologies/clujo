@@ -44,21 +44,30 @@ var Cron = class {
     if (this.job) throw new Error("Attempting to start an already started job");
     this.job = new import_croner.default(this.cronExpression, this.cronOptions, handler);
   }
-  stop() {
+  stop(timeout) {
     return new Promise((resolve) => {
+      const startTime = Date.now();
       const checkAndStop = () => {
-        if (this.job?.isBusy()) setTimeout(checkAndStop, 100);
-        else {
-          this.job?.stop();
+        if (!this.job) {
+          resolve();
+          return;
+        }
+        if (this.job.isBusy()) {
+          if (Date.now() - startTime > timeout) {
+            this.job.stop();
+            this.job = null;
+            resolve();
+            return;
+          }
+          setTimeout(checkAndStop, 100);
+        } else {
+          this.job.stop();
+          this.job = null;
           resolve();
         }
       };
       checkAndStop();
     });
-  }
-  async trigger() {
-    if (!this.job) throw new Error("Attempting to trigger a non-started job");
-    await this.job.trigger();
   }
 };
 // Annotate the CommonJS export names for ESM import in node:

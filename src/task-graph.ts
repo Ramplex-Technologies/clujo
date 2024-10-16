@@ -36,13 +36,20 @@ export class TaskGraph<TDependencies, TContext extends object> implements ITaskG
         const result = await task.run(this.taskDependencies, this.context.value);
         await this.context.update({ [taskId]: result });
         completed.add(taskId);
+      } catch {
+        // completed in the sense that we won't try to run it again
+        completed.add(taskId);
       } finally {
         running.delete(taskId);
 
         // Check if any dependent tasks are now ready to run
         for (const [id, t] of this.tasks) {
-          if (!completed.has(id) && !running.has(id) && t.dependencies.every((depId) => completed.has(depId))) {
-            readyTasks.add(id);
+          if (!completed.has(id) && !running.has(id)) {
+            const canRun = t.dependencies.every((depId) => {
+              const depTask = this.tasks.get(depId);
+              return depTask && completed.has(depId) && depTask.status === "completed";
+            });
+            if (canRun) readyTasks.add(id);
           }
         }
       }
@@ -59,6 +66,10 @@ export class TaskGraph<TDependencies, TContext extends object> implements ITaskG
       // Wait for at least one task to complete
       if (running.size > 0) {
         await Promise.race(running.values());
+      } else {
+        // no tasks are running and we have not completed all tasks
+        // happens when tasks could not run due to failed dependencies
+        break;
       }
     }
 

@@ -10,7 +10,9 @@ interface IClujoStart {
      * @param {CronOptions} [options] - Optional configuration for the cron job.
      * @returns {IClujoBuilder<void, undefined>} A builder instance for further configuration.
      */
-    setSchedule(pattern: string, options?: CronOptions): IClujoBuilder<void, {}>;
+    setSchedule(pattern: string, options?: CronOptions): IClujoBuilder<void, {
+        initial: undefined;
+    }>;
 }
 interface IClujoBuilder<TDependencies, TContext extends object> {
     /**
@@ -74,27 +76,27 @@ interface IClujo<TDependencies, TContext, TTaskMap extends TaskMap<TDependencies
      * - case: 1 <= i != j <= N. N tasks where task i depends on task j. N\{i} tasks run concurrently, task i runs after task j
      * - case: Task i depends on task j, task j depends on task i -> error
      *
-     * @template TNewContext The type of the new context returned by the task.
-     * @param {TaskOptions<TDependencies, TContext, TNewContext>} options - The task configuration.
+     * @template TTaskReturn The type of the task.
+     * @param {TaskOptions<TDependencies, TContext, TTaskReturn>} options - The task configuration.
      * @param {string} options.taskId - The unique identifier for the task.
-     * @param {TExecute<TDependencies, TContext, TNewContext>} options.execute - The task execution function.
+     * @param {TExecute<TDependencies, TContext, TTaskReturn>} options.execute - The task execution function.
      * @param {TErrorHandler<TDependencies, TContext>} [options.errorHandler] (optional) - The error handler function. Defaults to logging the error.
      * @param {RetryPolicy} [options.retryPolicy] (optional) - The retry policy for the task. Defaults to the Clujo's retry policy.
      * @param {Array<keyof TTaskMap>} [options.dependencies] (optional) - The task IDs that this task depends on. If not provided, the task will run with no dependencies.
-     * @returns {IClujo<TDependencies, TNewContext>} A new IClujo instance with the updated context type.
+     * @returns {IClujo<TDependencies, TTaskReturn>} A new IClujo instance with the updated context type.
      * @throws {Error} If the Clujo is already running.
      */
-    addTask<TTaskId extends string, TNewContext>({ taskId, execute, errorHandler, retryPolicy, dependencies, }: {
+    addTask<TTaskId extends string, TTaskReturn>({ taskId, execute, errorHandler, retryPolicy, dependencies, }: {
         taskId: TTaskId;
-        execute: TExecute<TDependencies, TContext, TNewContext>;
+        execute: TExecute<TDependencies, TContext, TTaskReturn>;
         errorHandler?: TErrorHandler<TDependencies, TContext>;
         retryPolicy?: RetryPolicy;
         dependencies?: Array<keyof TTaskMap>;
     }): IClujo<TDependencies, TContext & Partial<{
-        [K in TTaskId]: TNewContext extends void ? undefined : TNewContext;
+        [K in TTaskId]: TTaskReturn extends void ? undefined : TTaskReturn;
     }>, TTaskMap & {
-        [K in TTaskId]: ITask<TDependencies, TNewContext, TContext & Partial<{
-            [K in TTaskId]: TNewContext extends void ? undefined : TNewContext;
+        [K in TTaskId]: ITask<TDependencies, TTaskReturn, TContext & Partial<{
+            [K in TTaskId]: TTaskReturn extends void ? undefined : TTaskReturn;
         }>>;
     }>;
     /**
@@ -109,29 +111,26 @@ interface IClujo<TDependencies, TContext, TTaskMap extends TaskMap<TDependencies
      * @param {StartOptions} [options] - Optional configuration for starting the Clujo.
      * @param {Redis} options.redis - Redis instance for distributed locking.
      * @param {LockOptions} [options.options] - Optional lock configuration.
+     * @param {(ctx: Required<TContext>) => Promise<void> | void} [options.completionHandler] - Optional completion handler to run after the Clujo has finished.
      * @returns {IClujo<TDependencies, TContext>} The started Clujo instance.
      * @throws {Error} If the Clujo has already been started.
      */
     start(options?: StartOptions<TContext>): IClujo<TDependencies, TContext, TTaskMap>;
     /**
-     * Stops the Clujo execution. If the Clujo is currently running, it will complete the current task before stopping.
+     * Stops the Clujo execution, giving tasks timeout milliseconds to finish before forcefully stopping.
      *
+     * @param {number} timeout - The maximum time in milliseconds to wait for the Clujo to stop before forcefully stopping. If 0, will not wait. Defaults to 5000ms.
      * @returns {Promise<void>} A promise that resolves when the Clujo has been stopped.
-     * @throws {Error} If the Clujo has not been started.
+     * @throws {Error} If the Clujo has not been started
      */
-    stop(): Promise<void>;
+    stop(timeout: number): Promise<void>;
     /**
-     * Triggers an immediate execution of the Clujo tasks.
+     * Triggers an immediate execution of the Clujo tasks, independent of the schedule. Can be invoked without starting the Clujo.
      *
-     * @remarks
-     * - Initiates an immediate run of the Clujo's task sequence outside of its scheduled execution.
-     * - Can be used to manually trigger the Clujo at any time after it has been started.
-     * - If the Clujo is currently executing, the behavior of this depends on the whether Redis is used for locking and the `protect` cron option is set.
-     *
-     * @returns {Promise<void>} A promise that resolves when the triggered execution is complete.
-     * @throws {Error} If the Clujo has not been started.
+     * @returns {Promise<Required<TContext>>} A promise that resolves to the finalized context object when the triggered execution is complete.
+     * @throws {Error} If the Clujo has no tasks to run.
      */
-    trigger(): Promise<void>;
+    trigger(): Promise<Required<TContext>>;
 }
 type TExecute<TDependencies, TContext, TReturn> = ({ deps, ctx, }: {
     deps: TDependencies;

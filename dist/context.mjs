@@ -4,9 +4,15 @@ var Context = class {
     this.reset(initialObject);
     this.updateQueue = Promise.resolve();
   }
+  /**
+   * Gets the current state of the managed object.
+   */
   get value() {
     return this.object;
   }
+  /**
+   * Resets the context to its initial state or a new initial object.
+   */
   reset(initialObject) {
     if (initialObject) {
       this.object = { initial: { ...initialObject } };
@@ -14,6 +20,9 @@ var Context = class {
       this.object = { initial: void 0 };
     }
   }
+  /**
+   * Asynchronously updates the context with new values. Ensures that updates are applied in the order they are called.
+   */
   update(updateValue) {
     this.updateQueue = this.updateQueue.then(() => {
       this.object = { ...this.object, ...updateValue };
