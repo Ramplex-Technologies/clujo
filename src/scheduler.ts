@@ -52,6 +52,9 @@ export class Scheduler {
     job: Clujo<TDependencies, TContext>;
     completionHandler?: (ctx: Required<TContext>) => Promise<void> | void;
   }) {
+    if (this.jobs.some(({ job }) => job.id === input.job.id)) {
+      throw new Error(`Job with id ${input.job.id} is already added to the scheduler.`);
+    }
     this.jobs.push(input);
   }
 
