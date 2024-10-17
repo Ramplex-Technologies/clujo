@@ -97,6 +97,26 @@ await clujo.stop(timoutMs);
 
 ## Advanced Usage
 
+### Understanding Dependency Execution
+
+#### Context object 
+
+The context object contains the appropriate context for the task.
+
+ - All tasks have access to a context object which allows sharing values between tasks
+ - If task `i` depends on tasks `j_1,...,j_n`, then it can be guaranteed the context object will have the result of tasks `j_1,...,j_n` under the keys `j_1,...,j_n`. The value at these keys is the return of task `j_i`, `i = 1,...,n`.
+ - If a task has no dependencies it has access to the initial context object only (if it was set).
+
+#### Task execution
+
+  - case: N tasks each with no dependencies. All tasks run concurrently
+  - case: N tasks where task i depends on task `i-1`, `i=1,...,N`. All tasks run sequentially
+  - case: Fix `1 <= i != j <= N`. N tasks where task `i` depends on task `j`. `N\{i}` tasks run concurrently, task `i` runs after task `j`.
+  - case: Task `i` depends on task `j`, task `j` depends on task `i`. Cyclic dependencies will result in an error pre-execution.
+
+Can build up more complex cases from these simple cases
+
+
 ### Setting Context and Dependencies
 
 ```typescript
