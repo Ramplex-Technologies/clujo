@@ -37,12 +37,12 @@ export class Cron {
     private readonly cronOptions?: CronOptions,
   ) {}
 
-  start(handler: () => Promise<void> | void): void {
+  public start(handler: () => Promise<void> | void): void {
     if (this.job) throw new Error("Attempting to start an already started job");
     this.job = new Croner(this.cronExpression, this.cronOptions, handler);
   }
 
-  stop(timeout: number): Promise<void> {
+  public stop(timeout: number): Promise<void> {
     return new Promise<void>((resolve) => {
       const startTime = Date.now();
       const checkAndStop = () => {
@@ -69,5 +69,10 @@ export class Cron {
 
       checkAndStop();
     });
+  }
+
+  public async trigger(): Promise<void> {
+    if (!this.job) throw new Error("Attempting to trigger a job that is not running");
+    await this.job.trigger();
   }
 }
