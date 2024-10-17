@@ -2,7 +2,25 @@
   "name": "clujo",
   "author": "Rami Pellumbi",
   "description": "A lightweight task orchestration library for managing interdependent tasks with automatic parallel execution on a cron schedule.",
-  "keywords": [],
+  "keywords": [
+    "task",
+    "scheduler",
+    "cron",
+    "orchestration",
+    "workflow",
+    "job",
+    "automation",
+    "distributed",
+    "parallel",
+    "async",
+    "dependencies",
+    "typescript",
+    "redis",
+    "node",
+    "js",
+    "topological-sort",
+    "single-execution"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/ramipellumbi/clujo/tree/main"
