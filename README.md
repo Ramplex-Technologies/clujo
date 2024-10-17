@@ -2,32 +2,31 @@
 
 Clujo is a flexible solution for managing scheduled tasks in distributed systems. At a glance:
 
-- Clujo provides an intuitive interface for setting up cron-like schedules, making it easy to create and manage recurring tasks without the complexity of traditional cron systems.
-- Clujo's task orchestration allows you to define and execute a set of interdependent tasks. It analyzes task dependencies to determine the execution order, running independent tasks in parallel when possible while ensuring dependent tasks wait for their prerequisites. 
-- With Clujo, you can define a series of tasks that execute sequentially, allowing for complex workflows and dependencies between tasks. This ensures that your operations run in the correct order every time.
+- Clujo provides an intuitive interface for setting up cron-like schedules, making it easy to create and manage recurring tasks.
+- Clujo's task orchestration allows you to define and execute a set of interdependent tasks, running independent tasks in parallel when possible while ensuring dependent tasks wait for their prerequisites.
 - Clujo's context system allows you to pass and modify state between tasks, enabling sophisticated data flow and making it easier to build complex, stateful workflows.
 - Clujo includes a configurable retry policy, enabling your tasks to automatically recover from transient failures without manual intervention.
-- When used with Redis, Clujo provides out-of-the-box distributed locking. This ensures that only one instance of your scheduled task runs at a time, preventing overlapping executions in a distributed environment.
-- Clujo offers type-safe task definitions and context management
-- With the `runOnStartup` and `trigger` features, Clujo allows you to run tasks immediately when needed, in addition to their scheduled times.
+- When used with Redis, Clujo provides out-of-the-box distributed locking, preventing overlapping executions in a distributed environment.
+- Clujo offers type-safe task definitions and context management.
+- With the `runOnStartup` feature, Clujo allows you to run tasks immediately when needed, in addition to their scheduled times.
 - Clujo provides a graceful way to stop scheduled tasks, ensuring that your application can shut down without leaving tasks in an inconsistent state.
-- Each task can have its own (sync or async) error handler, allowing for fine-grained control over how failures are managed and reported.
+- Each task can have its own error handler, allowing for fine-grained control over how failures are managed and reported.
 
-# Installation
+## Installation
 
-### npm
-
-```bash
-npm install clujo
-```
-
-### pnpm
+Install Clujo using npm, pnpm, yarn, or your favorite package manager:
 
 ```bash
 pnpm install clujo
 ```
 
-### yarn
+or
+
+```bash
+npm install clujo
+```
+
+or
 
 ```bash
 yarn add clujo
@@ -37,80 +36,118 @@ yarn add clujo
 
 Here's a simple example to get you started with Clujo:
 
-### Getting ready to start
-
 ```typescript
-import { ClujoBuilder } from 'clujo';
+import { TaskGraph, Clujo } from 'clujo';
 
-const clujo = new ClujoBuilder("testJobUniqueId")
-  .setSchedule("0/10 * * * * *")                                    // Run every 10 seconds  -- MUST be invoked before building
-  .setRetryPolicy({ maxRetries: 3, retryDelayMs: 1000 })            // Retry a failed task up to 3 times with 1 second delay between retries
-  .setContext(async () => {                                         // Set the context for the job -- the first task will receive this context on every run
-    return await db.query("SELECT * FROM users");
-  })
-  .setDependencies({ logger: loggerFactory.createLogger("name") })  // Set dependencies for the job -- all tasks will have access to these dependencies
-  .runOnStartup()                                                   // Run the job immediately on startup independent of the schedule set
-  .build()                                                          // Generate a Clujo instance
-
-clujo
+// Define your tasks
+const tasks = new TaskGraph()
+  .finalize()
   .addTask({
-    taskId: "task1",                                                // unique task id within this clujo
+    id: "task1",
     execute: async ({ deps, ctx }) => {
-      // wait 1 second and log
-      deps.logger.debug("HELLO 1 START");
-      console.debug(ctx);                                           // initial query
-      await sleep(1000);
-      deps.logger.debug("HELLO 1 END");
-      return 10;                                                    // all tasks that depend on `task1` have access to this return under ctx.task1
+      console.log("Task 1 executing");
+      return "Task 1 result";
     },
   })
   .addTask({
-    taskId: "task2",
+    id: "task2",
     execute: async ({ deps, ctx }) => {
-      // wait 1 second and log
-      deps.logger.debug("HELLO 2 START");
-      console.debug(ctx);
-      await sleep(1000);
-      deps.logger.debug("HELLO 2 END");
-      return 20;
+      console.log("Task 2 executing");
+      return "Task 2 result";
     },
+    // will only execute after task 1 completes
     dependencies: ["task1"],
   })
   .addTask({
-    taskId: "task3",
+    id: "task3",
     execute: async ({ deps, ctx }) => {
-      // wait 1 second and log
-      deps.logger.debug("HELLO 3 START");
-      console.debug(ctx);
-      await sleep(1000);
-      deps.logger.debug("HELLO 3 END");
-      return 30;
+      console.log("Task 3 executing");
+      return "Task 3 result";
     },
-  });
+    // since task3 has no dependencies, it will run in parallel with task1 at the start of execution
+  })
+  .build();
 
-// final context object is
-// {
-//    "initial" resultFromDbQuery,
-//    "task1": 10,
-//    "task2": 20,
-//    "task3": 30 
-// }
+// Create a Clujo instance
+const clujo = new Clujo({
+  id: "myClujoJob",
+  cron: {
+    pattern: "*/5 * * * * *",
+  },
+  taskGraphRunner: tasks,
+});
+
+// Start the job
+clujo.start();
+
+// Trigger the job manually
+clujo.trigger().then((result) => {
+  console.log(result);
+});
+
+// Stop the job -- will force stop after 5 seconds
+await clujo.stop(timoutMs);
 ```
 
-### Starting, triggering, and stopping the job
+## Advanced Usage
+
+### Setting Context and Dependencies
 
 ```typescript
-// start the job
-clujo.start(); // all processes will run the set of tasks
-// or
-clujo.start({redis}) // only one process will run the set of tasks
-// or
-clujo.start({redis})
+const tasks = new TaskGraph()
+  .setContext(async () => {
+    const users = await fetchUsers();
+    return { users };
+  })
+  .setDependencies({ logger: console })
+  .finalize()
+  // ... add tasks
+  .build();
+```
 
-// trigger the job -- this is a Promise which resolves when all tasks have completed
-await clujo.trigger();
+### Using Redis for Distributed Locking
 
-// stop the job -- this is a Promise which resolves when all tasks have completed their current run and the job is stopped
-// if the job is not running, the Promise resolves immediately.
-await clujo.stop();
+When an `ioredis` client is provided, Clujo will use it to acquire distributed locks for each task execution. This ensures that tasks are not executed concurrently in a distributed environment.
+
+```typescript
+import Redis from 'ioredis';
+
+const redis = new Redis();
+
+clujo.start({
+  redis: {
+    client: redis,
+    lockOptions: { /* optional lock options */ }
+  }
+});
+```
+
+### Error Handling
+
+Tasks can have their own error handlers, allowing you to define custom logic for handling failures. The function can be synchronous or asynchronous, and has access to the same context as the execute function.
+
+```typescript
+.addTask({
+  id: "taskWithErrorHandler",
+  execute: async ({ deps, ctx }) => {
+    // Task logic
+  },
+  errorHandler: async (error, { deps, ctx }) => {
+    console.error("Task failed:", error);
+  }
+})
+```
+
+### Retry Policy
+
+Specify a retry policy for a task to automatically retry failed executions. The task will be retried up to `maxRetries` times, with a delay of `retryDelayMs` between each retry.
+
+```typescript
+.addTask({
+  id: "taskWithRetry",
+  execute: async ({ deps, ctx }) => {
+    // Task logic
+  },
+  retryPolicy: { maxRetries: 3, retryDelayMs: 1000 }
+})
 ```
