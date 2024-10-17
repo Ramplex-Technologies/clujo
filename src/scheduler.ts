@@ -57,6 +57,7 @@ export class Scheduler {
 
   /**
    * Starts all added jobs in the scheduler.
+   *
    * @param redis - Optional Redis instance to be passed to the jobs. If provided, enables distributed locking.
    */
   public start(redis?: Redis) {
@@ -73,10 +74,11 @@ export class Scheduler {
   }
   /**
    * Stops all running jobs in the scheduler.
-   * @param timeout - The maximum time (in milliseconds) to wait for jobs to stop.
+   *
+   * @param timeout - The maximum time (in milliseconds) to wait for jobs to stop. Defaults to 5000ms.
    * @returns A promise that resolves when all jobs have stopped or the timeout is reached.
    */
-  public async stop(timeout: number) {
+  public async stop(timeout = 5000) {
     await Promise.all(this.jobs.map(({ job }) => job.stop(timeout)));
   }
 }
