@@ -72,13 +72,18 @@ export class Clujo<
     return this;
   }
 
-  public start({
-    redis,
-    onTaskCompletion,
-  }: {
-    redis?: { client: Redis; lockOptions?: LockOptions };
-    onTaskCompletion?: (ctx: Required<TTaskContext>) => void | Promise<void>;
-  } = {}) {
+  public start(
+    {
+      redis,
+      onTaskCompletion,
+    }: {
+      redis?: { client: Redis; lockOptions?: LockOptions };
+      onTaskCompletion?: (ctx: Required<TTaskContext>) => void | Promise<void>;
+    } = {
+      redis: undefined,
+      onTaskCompletion: undefined,
+    },
+  ) {
     if (this._hasStarted) throw new Error("Cannot start a Clujo that has already started.");
     const executeTasksAndCompletionHandler = async () => {
       const finalContext = await this._taskGraphRunner.run();
