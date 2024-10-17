@@ -1,4 +1,4 @@
-import Croner, { type CronOptions } from "croner";
+import { Cron as Croner, type CronOptions } from "croner";
 
 export class Cron {
   private job: Croner | null = null;
