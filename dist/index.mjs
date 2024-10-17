@@ -44,19 +44,36 @@ var __callDispose = (stack, error, hasError) => {
   return next();
 };
 
+// src/clujo.ts
+import { Mutex } from "redis-semaphore";
+
 // src/cron.ts
-import Croner from "croner";
+import { Cron as Croner } from "croner";
 var Cron = class {
   constructor(cronExpression, cronOptions) {
     this.cronExpression = cronExpression;
     this.cronOptions = cronOptions;
   }
   job = null;
+  /**
+   * Starts the cron job with the specified handler.
+   *
+   * @param handler A function to be executed when the cron job triggers.
+   * @throws {Error} If attempting to start a job that has already been started.
+   */
   start(handler) {
     if (this.job) throw new Error("Attempting to start an already started job");
     this.job = new Croner(this.cronExpression, this.cronOptions, handler);
   }
+  /**
+   * Stops the cron job. If the job is currently running, it will wait for the job to finish before stopping it.
+   * This can be safely invoked even if the job hasn't been started.
+   *
+   * @param timeout The maximum time (in ms) to wait for the job to finish before stopping it forcefully.
+   * @returns A promise that resolves when the job has been stopped
+   */
   stop(timeout) {
+    if (!this.job) return Promise.resolve();
     return new Promise((resolve) => {
       const startTime = Date.now();
       const checkAndStop = () => {
@@ -82,10 +99,19 @@ var Cron = class {
       checkAndStop();
     });
   }
+  /**
+   * Triggers the cron job to run immediately. A triggered execution will prevent the job from running at its scheduled time
+   * unless `preventOverlap` is set to `false` in the cron options.
+   *
+   * @throws {Error} If attempting to trigger a job that is not running.
+   */
+  async trigger() {
+    if (!this.job) throw new Error("Attempting to trigger a job that is not running");
+    await this.job.trigger();
+  }
 };
 
 // src/clujo.ts
-import { Mutex } from "redis-semaphore";
 var Clujo = class {
   id;
   _cron;
@@ -105,13 +131,17 @@ var Clujo = class {
     this._cron = new Cron(cron.pattern, cron.options);
   }
   runOnStartup() {
+    if (this._hasStarted) throw new Error("Cannot run on startup after starting a Clujo.");
     this._runImmediately = true;
     return this;
   }
   start({
     redis,
     onTaskCompletion
-  } = {}) {
+  } = {
+    redis: void 0,
+    onTaskCompletion: void 0
+  }) {
     if (this._hasStarted) throw new Error("Cannot start a Clujo that has already started.");
     const executeTasksAndCompletionHandler = async () => {
       const finalContext = await this._taskGraphRunner.run();
@@ -119,15 +149,12 @@ var Clujo = class {
     };
     const handler = async () => {
       try {
-        if (!redis) {
-          await executeTasksAndCompletionHandler();
-        } else {
+        if (!redis) await executeTasksAndCompletionHandler();
+        else {
           var _stack = [];
           try {
             const lock = __using(_stack, await this._tryAcquire(redis.client, redis.lockOptions), true);
-            if (lock) {
-              await executeTasksAndCompletionHandler();
-            }
+            if (lock) await executeTasksAndCompletionHandler();
           } catch (_) {
             var _error = _, _hasError = true;
           } finally {
@@ -141,7 +168,7 @@ var Clujo = class {
     };
     this._cron.start(handler);
     this._hasStarted = true;
-    if (this._runImmediately) this.trigger();
+    if (this._runImmediately) this._cron.trigger();
     return this;
   }
   async stop(timeout = 5e3) {
@@ -253,16 +280,40 @@ var TaskGraph = class {
   _contextValueOrFactory = void 0;
   // start with an empty dependencies object
   _dependencies = /* @__PURE__ */ Object.create(null);
+  /**
+   * Finalizes the setup and returns an instance of `TaskGraphBuilder`.
+   * Once invoked, the initial context and dependencies are no longer mutable.
+   *
+   * @returns A new instance of `TaskGraphBuilder` with the current state.
+   */
   finalize() {
     return new TaskGraphBuilder(
       this._dependencies,
       this._contextValueOrFactory
     );
   }
+  /**
+   * Sets the initial context for the task graph.
+   * This context will be passed to the first task(s) in the graph under the `initial` key.
+   * Multiple invocation of this method will override the previous context.
+   *
+   * @template TNewContext The type of the new context.
+   * @param valueOrFactory - The initial context value or a factory function to create it.
+   *                         If a function is provided, it can be synchronous or asynchronous.
+   * @returns A TaskGraph instance with the new context type.
+   */
   setContext(valueOrFactory) {
     this._contextValueOrFactory = valueOrFactory;
     return this;
   }
+  /**
+   * Sets the dependencies for the task graph. These dependencies will be available to all tasks in the graph.
+   * Multiple invocation of this method will override the previous dependencies.
+   *
+   * @template TNewDependencies The type of the new dependencies, which must be an object.
+   * @param value - The dependencies object to be used across all tasks in the graph.
+   * @returns A TaskGraph instance with the new dependencies type.
+   */
   setDependencies(value) {
     if (typeof value !== "object" || value === null) throw new Error("Initial dependencies must be an object");
     this._dependencies = value;
@@ -276,6 +327,26 @@ var TaskGraphBuilder = class {
   }
   _tasks = /* @__PURE__ */ new Map();
   _topologicalOrder = [];
+  /**
+   * Adds a new task to the graph.
+   *
+   * @template TTaskId The ID of the task, which must be unique.
+   * @template TTaskDependencyIds The IDs of the task's dependencies.
+   * @template TTaskReturn The return type of the task.
+   * @param options The configuration options for the task:
+   * @param options.id A unique identifier for the task.
+   * @param options.execute A function that performs the task's operation. It receives an object with `deps` (dependencies) and `ctx` (context) properties.
+   * @param options.dependencies An optional array of task IDs that this task depends on. If not provided, the task will be executed immediately on start.
+   * @param options.retryPolicy An optional retry policy for the task, specifying maxRetries and retryDelayMs. Defaults to no retries.
+   * @param options.errorHandler An optional function to handle errors that occur during task execution. Defaults to `console.error`.
+   *
+   * @returns A new instance of `TaskGraphBuilder` with the new task added for chaining.
+   *
+   * @throws {Error} If a task with the same ID already exists.
+   * @throws {Error} If a specified dependency task has not been added to the graph yet.
+   *
+   * @returns A new instance of `TaskGraphBuilder` with the new task added for chaining.
+   */
   addTask(options) {
     const taskId = options.id;
     if (this._tasks.has(taskId)) throw new Error(`Task with id ${taskId} already exists`);
@@ -289,14 +360,28 @@ var TaskGraphBuilder = class {
     }
     return this;
   }
+  /**
+   * Builds and returns a TaskGraphRunner instance.
+   * This method finalizes the task graph and prepares it for execution by topologically sorting the tasks.
+   *
+   * @returns A new `TaskGraphRunner` instance ready to execute the task graph.
+   *
+   * @throws {Error} If no tasks have been added to the graph.
+   */
   build() {
     if (!this.size) throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
     this._topologicalSort();
     return new TaskGraphRunner(this._dependencies, this._contextValueOrFactory, this._topologicalOrder, this._tasks);
   }
+  /**
+   * Returns the number of tasks in the graph.
+   */
   get size() {
     return this._tasks.size;
   }
+  /**
+   * Topologically sorts the tasks in the graph, placing the sorted order in the `_topologicalOrder` array.
+   */
   _topologicalSort() {
     const visited = /* @__PURE__ */ new Set();
     const temp = /* @__PURE__ */ new Set();
@@ -325,10 +410,16 @@ var TaskGraphRunner = class {
     this._tasks = _tasks;
   }
   context = new Context();
-  run = async () => {
-    if (this._topologicalOrder.length === 0) {
+  /**
+   * Runs the tasks in the graph in topological order.
+   * Tasks are run concurrently when possible.
+   * In the event a task fails, other independent tasks will continue to run.
+   *
+   * @returns A promise that resolves to the completed context object when all tasks have completed.
+   */
+  async run() {
+    if (this._topologicalOrder.length === 0)
       throw new Error("No tasks to run. Did you forget to call topologicalSort?");
-    }
     let value;
     if (this._contextValueOrFactory) {
       value = typeof this._contextValueOrFactory === "function" ? await this._contextValueOrFactory() : this._contextValueOrFactory;
@@ -374,7 +465,7 @@ var TaskGraphRunner = class {
       }
     }
     return this.context.value;
-  };
+  }
 };
 var Task = class {
   constructor(options) {

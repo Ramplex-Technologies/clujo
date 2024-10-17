@@ -1,9 +1,7 @@
 "use strict";
-var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -17,14 +15,6 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/cron.ts
@@ -33,18 +23,32 @@ __export(cron_exports, {
   Cron: () => Cron
 });
 module.exports = __toCommonJS(cron_exports);
-var import_croner = __toESM(require("croner"));
+var import_croner = require("croner");
 var Cron = class {
   constructor(cronExpression, cronOptions) {
     this.cronExpression = cronExpression;
     this.cronOptions = cronOptions;
   }
   job = null;
+  /**
+   * Starts the cron job with the specified handler.
+   *
+   * @param handler A function to be executed when the cron job triggers.
+   * @throws {Error} If attempting to start a job that has already been started.
+   */
   start(handler) {
     if (this.job) throw new Error("Attempting to start an already started job");
-    this.job = new import_croner.default(this.cronExpression, this.cronOptions, handler);
+    this.job = new import_croner.Cron(this.cronExpression, this.cronOptions, handler);
   }
+  /**
+   * Stops the cron job. If the job is currently running, it will wait for the job to finish before stopping it.
+   * This can be safely invoked even if the job hasn't been started.
+   *
+   * @param timeout The maximum time (in ms) to wait for the job to finish before stopping it forcefully.
+   * @returns A promise that resolves when the job has been stopped
+   */
   stop(timeout) {
+    if (!this.job) return Promise.resolve();
     return new Promise((resolve) => {
       const startTime = Date.now();
       const checkAndStop = () => {
@@ -69,6 +73,16 @@ var Cron = class {
       };
       checkAndStop();
     });
+  }
+  /**
+   * Triggers the cron job to run immediately. A triggered execution will prevent the job from running at its scheduled time
+   * unless `preventOverlap` is set to `false` in the cron options.
+   *
+   * @throws {Error} If attempting to trigger a job that is not running.
+   */
+  async trigger() {
+    if (!this.job) throw new Error("Attempting to trigger a job that is not running");
+    await this.job.trigger();
   }
 };
 // Annotate the CommonJS export names for ESM import in node:

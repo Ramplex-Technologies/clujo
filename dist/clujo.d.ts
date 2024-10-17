@@ -1,7 +1,7 @@
 import { CronOptions } from 'croner';
-import { TaskGraphRunner } from './task-graph.js';
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import { LockOptions } from 'redis-semaphore';
+import { TaskGraphRunner } from './task-graph.js';
 
 declare class Clujo<TTaskDependencies extends Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
     initial: unknown;
@@ -25,10 +25,10 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown>, TTaskCont
             client: Redis;
             lockOptions?: LockOptions;
         };
-        onTaskCompletion?: (ctx: Required<TTaskContext>) => void | Promise<void>;
+        onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
     }): this;
     stop(timeout?: number): Promise<void>;
-    trigger(): Promise<Required<TTaskContext>>;
+    trigger(): Promise<TTaskContext>;
     private _tryAcquire;
 }
 

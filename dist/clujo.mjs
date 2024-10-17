@@ -44,19 +44,36 @@ var __callDispose = (stack, error, hasError) => {
   return next();
 };
 
+// src/clujo.ts
+import { Mutex } from "redis-semaphore";
+
 // src/cron.ts
-import Croner from "croner";
+import { Cron as Croner } from "croner";
 var Cron = class {
   constructor(cronExpression, cronOptions) {
     this.cronExpression = cronExpression;
     this.cronOptions = cronOptions;
   }
   job = null;
+  /**
+   * Starts the cron job with the specified handler.
+   *
+   * @param handler A function to be executed when the cron job triggers.
+   * @throws {Error} If attempting to start a job that has already been started.
+   */
   start(handler) {
     if (this.job) throw new Error("Attempting to start an already started job");
     this.job = new Croner(this.cronExpression, this.cronOptions, handler);
   }
+  /**
+   * Stops the cron job. If the job is currently running, it will wait for the job to finish before stopping it.
+   * This can be safely invoked even if the job hasn't been started.
+   *
+   * @param timeout The maximum time (in ms) to wait for the job to finish before stopping it forcefully.
+   * @returns A promise that resolves when the job has been stopped
+   */
   stop(timeout) {
+    if (!this.job) return Promise.resolve();
     return new Promise((resolve) => {
       const startTime = Date.now();
       const checkAndStop = () => {
@@ -82,10 +99,19 @@ var Cron = class {
       checkAndStop();
     });
   }
+  /**
+   * Triggers the cron job to run immediately. A triggered execution will prevent the job from running at its scheduled time
+   * unless `preventOverlap` is set to `false` in the cron options.
+   *
+   * @throws {Error} If attempting to trigger a job that is not running.
+   */
+  async trigger() {
+    if (!this.job) throw new Error("Attempting to trigger a job that is not running");
+    await this.job.trigger();
+  }
 };
 
 // src/clujo.ts
-import { Mutex } from "redis-semaphore";
 var Clujo = class {
   id;
   _cron;
@@ -105,13 +131,17 @@ var Clujo = class {
     this._cron = new Cron(cron.pattern, cron.options);
   }
   runOnStartup() {
+    if (this._hasStarted) throw new Error("Cannot run on startup after starting a Clujo.");
     this._runImmediately = true;
     return this;
   }
   start({
     redis,
     onTaskCompletion
-  } = {}) {
+  } = {
+    redis: void 0,
+    onTaskCompletion: void 0
+  }) {
     if (this._hasStarted) throw new Error("Cannot start a Clujo that has already started.");
     const executeTasksAndCompletionHandler = async () => {
       const finalContext = await this._taskGraphRunner.run();
@@ -119,15 +149,12 @@ var Clujo = class {
     };
     const handler = async () => {
       try {
-        if (!redis) {
-          await executeTasksAndCompletionHandler();
-        } else {
+        if (!redis) await executeTasksAndCompletionHandler();
+        else {
           var _stack = [];
           try {
             const lock = __using(_stack, await this._tryAcquire(redis.client, redis.lockOptions), true);
-            if (lock) {
-              await executeTasksAndCompletionHandler();
-            }
+            if (lock) await executeTasksAndCompletionHandler();
           } catch (_) {
             var _error = _, _hasError = true;
           } finally {
@@ -141,7 +168,7 @@ var Clujo = class {
     };
     this._cron.start(handler);
     this._hasStarted = true;
-    if (this._runImmediately) this.trigger();
+    if (this._runImmediately) this._cron.trigger();
     return this;
   }
   async stop(timeout = 5e3) {
