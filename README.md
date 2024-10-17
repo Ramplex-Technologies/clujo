@@ -1,12 +1,14 @@
 # clujo
 
-Clujo is a flexible solution for managing scheduled tasks in distributed systems. It would not be possible without the amazing work of the following projects:
+Clujo is a flexible solution for managing scheduled tasks in your distributed Node.js applications. It would not be possible without the amazing work of the following projects:
 
 - [Croner](https://github.com/Hexagon/croner/tree/master?tab=readme-ov-file): used for running task graphs on a cron schedule
 - [ioredis](https://github.com/redis/ioredis) - (only used if an `ioredis` instance is provided to start method) used to ensure single execution in a distributed environment
 - [redis-semaphore](https://github.com/swarthy/redis-semaphore) (only used if an `ioredis` instance is provided to start method) - used to ensure single execution in a distributed environment
 
-# Features
+Coming soon: `bun` and `deno` support.
+
+## Features
 
 - Clujo provides an intuitive interface for setting up cron-like schedules, making it easy to create and manage recurring tasks.
 - Clujo's task orchestration allows you to define and execute a set of interdependent tasks, running independent tasks in parallel when possible while ensuring dependent tasks wait for their prerequisites.
@@ -18,7 +20,7 @@ Clujo is a flexible solution for managing scheduled tasks in distributed systems
 - Clujo provides a graceful way to stop scheduled tasks, ensuring that your application can shut down without leaving tasks in an inconsistent state.
 - Each task can have its own error handler, allowing for fine-grained control over how failures are managed and reported.
 
-## Installation
+# Installation
 
 Install Clujo using npm, pnpm, yarn, or your favorite package manager:
 
@@ -38,7 +40,7 @@ or
 yarn add clujo
 ```
 
-## Quick Start
+# Quick Start
 
 Here's a simple example to get you started with Clujo:
 
@@ -84,22 +86,30 @@ const clujo = new Clujo({
 });
 
 // Start the job
-clujo.start();
+clujo.start({
+  // Optional: provide an ioredis client for distributed locking
+  redis: { client: new Redis() },
+  // Optional: run the job immediately on startup
+  runOnStartup: true,
+  // Optional: provide a callback to run when the job completes that takes in the completed context object
+  onTaskCompletion: (ctx) => console.log(ctx),
+});
 
-// Trigger the job manually
+// Trigger the job manually to get a complete context object
 clujo.trigger().then((result) => {
   console.log(result);
 });
 
-// Stop the job -- will force stop after 5 seconds
-await clujo.stop(timoutMs);
+// Gracefully stop the job by waiting until the current execution completes
+// Will force stop after timeout milliseconds
+await clujo.stop(timeoutMs);
 ```
 
-## Advanced Usage
+# Advanced Usage
 
-### Understanding Dependency Execution
+## Understanding Dependency Execution
 
-#### Context object 
+### Context object
 
 The context object contains the appropriate context for the task.
 
@@ -107,17 +117,19 @@ The context object contains the appropriate context for the task.
  - If task `i` depends on tasks `j_1,...,j_n`, then it can be guaranteed the context object will have the result of tasks `j_1,...,j_n` under the keys `j_1,...,j_n`. The value at these keys is the return of task `j_i`, `i = 1,...,n`.
  - If a task has no dependencies it has access to the initial context object only (if it was set).
 
-#### Task execution
+### Task execution
 
   - case: N tasks each with no dependencies. All tasks run concurrently
   - case: N tasks where task i depends on task `i-1`, `i=1,...,N`. All tasks run sequentially
   - case: Fix `1 <= i != j <= N`. N tasks where task `i` depends on task `j`. `N\{i}` tasks run concurrently, task `i` runs after task `j`.
   - case: Task `i` depends on task `j`, task `j` depends on task `i`. Cyclic dependencies will result in an error pre-execution.
 
+In the event a task execution fails, all further dependent tasks will not be executed. Other independent tasks will continue to run.
+
 Can build up more complex cases from these simple cases
 
 
-### Setting Context and Dependencies
+## Setting Context and Dependencies
 
 ```typescript
 const tasks = new TaskGraph()
@@ -131,9 +143,9 @@ const tasks = new TaskGraph()
   .build();
 ```
 
-### Using Redis for Distributed Locking
+## Using Redis for Distributed Locking
 
-When an `ioredis` client is provided, Clujo will use it to acquire distributed locks for each task execution. This ensures that tasks are not executed concurrently in a distributed environment.
+When an `ioredis` client is provided, Clujo will use it to acquire a lock for each task execution. This ensures that tasks are not executed concurrently in a distributed environment.
 
 ```typescript
 import Redis from 'ioredis';
@@ -148,7 +160,19 @@ clujo.start({
 });
 ```
 
-### Error Handling
+## Running Tasks on Startup
+
+You can run tasks immediately when the job starts by setting the `runOnStartup` option to `true`.
+The triggered execution will prevent a scheduled execution from running at the same time in the event
+the scheduled execution overlaps with the triggered execution.
+
+```typescript
+clujo.start({
+  runOnStartup: true
+});
+```
+
+## Error Handling
 
 Tasks can have their own error handlers, allowing you to define custom logic for handling failures. The function can be synchronous or asynchronous, and has access to the same context as the execute function.
 
@@ -164,7 +188,7 @@ Tasks can have their own error handlers, allowing you to define custom logic for
 })
 ```
 
-### Retry Policy
+## Retry Policy
 
 Specify a retry policy for a task to automatically retry failed executions. The task will be retried up to `maxRetries` times, with a delay of `retryDelayMs` between each retry.
 
