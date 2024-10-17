@@ -1,8 +1,8 @@
 import type { CronOptions } from "croner";
-import type { TaskGraphRunner } from "./task-graph";
-import { Cron } from "./cron";
 import type Redis from "ioredis";
 import { type LockOptions, Mutex } from "redis-semaphore";
+import { Cron } from "./cron";
+import type { TaskGraphRunner } from "./task-graph";
 
 export class Clujo<
   TTaskDependencies extends Record<string, unknown>,
