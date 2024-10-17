@@ -1,30 +1,5 @@
-"use strict";
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-
 // src/task-graph.ts
-var task_graph_exports = {};
-__export(task_graph_exports, {
-  TaskGraph: () => TaskGraph,
-  TaskGraphRunner: () => TaskGraphRunner
-});
-module.exports = __toCommonJS(task_graph_exports);
-var import_node_util = require("util");
+import { promisify } from "node:util";
 
 // src/context.ts
 var Context = class {
@@ -63,7 +38,7 @@ var Context = class {
 };
 
 // src/task-graph.ts
-var sleep = (0, import_node_util.promisify)(setTimeout);
+var sleep = promisify(setTimeout);
 var TaskGraph = class {
   // start with an undefined context value (placed under key initial)
   _contextValueOrFactory = void 0;
@@ -239,9 +214,8 @@ var Task = class {
     return this._status;
   }
 };
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
+export {
   TaskGraph,
   TaskGraphRunner
-});
-//# sourceMappingURL=task-graph.js.map
+};
+//# sourceMappingURL=task-graph.mjs.map

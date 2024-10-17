@@ -1,7 +1,35 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __knownSymbol = (name, symbol) => (symbol = Symbol[name]) ? symbol : Symbol.for("Symbol." + name);
 var __typeError = (msg) => {
   throw TypeError(msg);
 };
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var __using = (stack, value, async) => {
   if (value != null) {
     if (typeof value !== "object" && typeof value !== "function") __typeError("Object expected");
@@ -44,8 +72,17 @@ var __callDispose = (stack, error, hasError) => {
   return next();
 };
 
+// src/index.ts
+var src_exports = {};
+__export(src_exports, {
+  Clujo: () => Clujo,
+  Scheduler: () => Scheduler,
+  TaskGraph: () => TaskGraph
+});
+module.exports = __toCommonJS(src_exports);
+
 // src/cron.ts
-import Croner from "croner";
+var import_croner = __toESM(require("croner"));
 var Cron = class {
   constructor(cronExpression, cronOptions) {
     this.cronExpression = cronExpression;
@@ -54,7 +91,7 @@ var Cron = class {
   job = null;
   start(handler) {
     if (this.job) throw new Error("Attempting to start an already started job");
-    this.job = new Croner(this.cronExpression, this.cronOptions, handler);
+    this.job = new import_croner.default(this.cronExpression, this.cronOptions, handler);
   }
   stop(timeout) {
     return new Promise((resolve) => {
@@ -85,7 +122,7 @@ var Cron = class {
 };
 
 // src/clujo.ts
-import { Mutex } from "redis-semaphore";
+var import_redis_semaphore = require("redis-semaphore");
 var Clujo = class {
   id;
   _cron;
@@ -152,7 +189,7 @@ var Clujo = class {
     return await this._taskGraphRunner.run();
   }
   async _tryAcquire(redis, lockOptions) {
-    const mutex = new Mutex(redis, this.id, lockOptions);
+    const mutex = new import_redis_semaphore.Mutex(redis, this.id, lockOptions);
     const lock = await mutex.tryAcquire();
     if (!lock) return null;
     return {
@@ -208,7 +245,7 @@ var Scheduler = class {
 };
 
 // src/task-graph.ts
-import { promisify } from "node:util";
+var import_node_util = require("util");
 
 // src/context.ts
 var Context = class {
@@ -247,7 +284,7 @@ var Context = class {
 };
 
 // src/task-graph.ts
-var sleep = promisify(setTimeout);
+var sleep = (0, import_node_util.promisify)(setTimeout);
 var TaskGraph = class {
   // start with an undefined context value (placed under key initial)
   _contextValueOrFactory = void 0;
@@ -423,9 +460,10 @@ var Task = class {
     return this._status;
   }
 };
-export {
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
   Clujo,
   Scheduler,
   TaskGraph
-};
+});
 //# sourceMappingURL=index.js.map
