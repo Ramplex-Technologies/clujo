@@ -201,3 +201,57 @@ Specify a retry policy for a task to automatically retry failed executions. The 
   retryPolicy: { maxRetries: 3, retryDelayMs: 1000 }
 })
 ```
+
+# Using the Scheduler
+
+The Scheduler class provides a convenient way to manage multiple Clujo jobs together. It allows you to add, start, and stop groups of jobs in a centralized manner.
+
+## Adding Jobs to the Scheduler
+
+```typescript
+import { Scheduler } from 'clujo';
+import { Redis } from 'ioredis';
+
+const scheduler = new Scheduler();
+
+// Add jobs to the scheduler
+scheduler.addJob({
+  job: myFirstClujoJob,
+  // Optional completion handler for this clujo
+  completionHandler: async (ctx) => {
+    console.log('First job completed with context:', ctx);
+  }
+});
+
+scheduler.addJob({
+  job: mySecondClujoJob
+});
+
+// Add more jobs as needed
+```
+
+## Starting All Jobs
+
+You can start all added jobs at once, optionally providing a Redis instance for distributed locking:
+
+```typescript
+const redis = new Redis(); // Your Redis configuration
+
+// Start all jobs without distributed locking
+scheduler.start();
+
+// Or, start all jobs with distributed locking
+scheduler.start(redis);
+```
+
+## Stopping All Jobs
+
+To stop all running jobs:
+
+```typescript
+// Stop all jobs with a default timeout of 5000ms
+await scheduler.stop();
+
+// Or, specify a custom timeout in milliseconds
+await scheduler.stop(10000);
+```
