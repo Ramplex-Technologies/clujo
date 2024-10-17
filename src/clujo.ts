@@ -79,7 +79,7 @@ export class Clujo<
       onTaskCompletion,
     }: {
       redis?: { client: Redis; lockOptions?: LockOptions };
-      onTaskCompletion?: (ctx: Required<TTaskContext>) => void | Promise<void>;
+      onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
     } = {
       redis: undefined,
       onTaskCompletion: undefined,
@@ -115,7 +115,7 @@ export class Clujo<
     await this._cron.stop(timeout);
   }
 
-  public async trigger(): Promise<Required<TTaskContext>> {
+  public async trigger(): Promise<TTaskContext> {
     // we do not trigger via the cron here so that we can make use of the result of the task graph
     return await this._taskGraphRunner.run();
   }

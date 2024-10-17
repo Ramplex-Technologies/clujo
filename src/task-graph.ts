@@ -37,6 +37,12 @@ export class TaskGraph<
   // start with an empty dependencies object
   private _dependencies: unknown = Object.create(null);
 
+  /**
+   * Finalizes the setup and returns an instance of `TaskGraphBuilder`.
+   * Once invoked, the initial context and dependencies are no longer mutable.
+   *
+   * @returns A new instance of `TaskGraphBuilder` with the current state.
+   */
   public finalize() {
     // return a new instance of TaskGraph with the current state
     return new TaskGraphBuilder<TTaskDependencies, TTaskContext>(
@@ -45,6 +51,16 @@ export class TaskGraph<
     );
   }
 
+  /**
+   * Sets the initial context for the task graph.
+   * This context will be passed to the first task(s) in the graph under the `initial` key.
+   * Multiple invocation of this method will override the previous context.
+   *
+   * @template TNewContext The type of the new context.
+   * @param valueOrFactory - The initial context value or a factory function to create it.
+   *                         If a function is provided, it can be synchronous or asynchronous.
+   * @returns A TaskGraph instance with the new context type.
+   */
   public setContext<TNewContext>(valueOrFactory: TNewContext | (() => TNewContext | Promise<TNewContext>)) {
     // set the context value to the provided value or factory
     this._contextValueOrFactory = valueOrFactory;
@@ -52,6 +68,14 @@ export class TaskGraph<
     return this as unknown as TaskGraph<TTaskDependencies, { initial: TNewContext }>;
   }
 
+  /**
+   * Sets the dependencies for the task graph. These dependencies will be available to all tasks in the graph.
+   * Multiple invocation of this method will override the previous dependencies.
+   *
+   * @template TNewDependencies The type of the new dependencies, which must be an object.
+   * @param value - The dependencies object to be used across all tasks in the graph.
+   * @returns A TaskGraph instance with the new dependencies type.
+   */
   public setDependencies<TNewDependencies extends Record<string, unknown>>(value: TNewDependencies) {
     if (typeof value !== "object" || value === null) throw new Error("Initial dependencies must be an object");
     // set the dependencies object to the provided value
@@ -74,6 +98,26 @@ class TaskGraphBuilder<
     private _contextValueOrFactory: undefined | TTaskContext | (() => TTaskContext | Promise<TTaskContext>),
   ) {}
 
+  /**
+   * Adds a new task to the graph.
+   *
+   * @template TTaskId The ID of the task, which must be unique.
+   * @template TTaskDependencyIds The IDs of the task's dependencies.
+   * @template TTaskReturn The return type of the task.
+   * @param options The configuration options for the task:
+   * @param options.id A unique identifier for the task.
+   * @param options.execute A function that performs the task's operation. It receives an object with `deps` (dependencies) and `ctx` (context) properties.
+   * @param options.dependencies An optional array of task IDs that this task depends on. If not provided, the task will be executed immediately on start.
+   * @param options.retryPolicy An optional retry policy for the task, specifying maxRetries and retryDelayMs. Defaults to no retries.
+   * @param options.errorHandler An optional function to handle errors that occur during task execution. Defaults to `console.error`.
+   *
+   * @returns A new instance of `TaskGraphBuilder` with the new task added for chaining.
+   *
+   * @throws {Error} If a task with the same ID already exists.
+   * @throws {Error} If a specified dependency task has not been added to the graph yet.
+   *
+   * @returns A new instance of `TaskGraphBuilder` with the new task added for chaining.
+   */
   public addTask<TTaskId extends string, TTaskDependencyIds extends TAllDependencyIds, TTaskReturn>(
     options: TaskOptions<TTaskId, TTaskDependencies, TTaskContext, TTaskReturn, TTaskDependencyIds>,
   ) {
@@ -99,16 +143,30 @@ class TaskGraphBuilder<
     >;
   }
 
+  /**
+   * Builds and returns a TaskGraphRunner instance.
+   * This method finalizes the task graph and prepares it for execution by topologically sorting the tasks.
+   *
+   * @returns A new `TaskGraphRunner` instance ready to execute the task graph.
+   *
+   * @throws {Error} If no tasks have been added to the graph.
+   */
   public build() {
     if (!this.size) throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
     this._topologicalSort();
     return new TaskGraphRunner(this._dependencies, this._contextValueOrFactory, this._topologicalOrder, this._tasks);
   }
 
+  /**
+   * Returns the number of tasks in the graph.
+   */
   public get size() {
     return this._tasks.size;
   }
 
+  /**
+   * Topologically sorts the tasks in the graph, placing the sorted order in the `_topologicalOrder` array.
+   */
   private _topologicalSort() {
     const visited = new Set<string>();
     const temp = new Set<string>();
@@ -145,10 +203,17 @@ export class TaskGraphRunner<
     private readonly _tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>,
   ) {}
 
-  run = async (): Promise<Required<TTaskContext>> => {
-    if (this._topologicalOrder.length === 0) {
+  /**
+   * Runs the tasks in the graph in topological order.
+   * Tasks are run concurrently when possible.
+   * In the event a task fails, other independent tasks will continue to run.
+   *
+   * @returns A promise that resolves to the completed context object when all tasks have completed.
+   */
+  async run(): Promise<TTaskContext> {
+    if (this._topologicalOrder.length === 0)
       throw new Error("No tasks to run. Did you forget to call topologicalSort?");
-    }
+
     let value: TTaskContext["initial"] | undefined;
     if (this._contextValueOrFactory) {
       value =
@@ -209,8 +274,8 @@ export class TaskGraphRunner<
       }
     }
 
-    return this.context.value as Required<TTaskContext>;
-  };
+    return this.context.value;
+  }
 }
 
 class Task<
