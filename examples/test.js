@@ -1,6 +1,5 @@
 import * as util from "node:util";
-// switch to import { TaskGraph, Clujo } from "clujo";
-import { TaskGraph, Clujo } from "../dist/index.js";
+import { TaskGraph, Clujo } from "clujo";
 
 const sleep = util.promisify(setTimeout);
 
