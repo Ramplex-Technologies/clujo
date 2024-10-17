@@ -1,34 +1,34 @@
 /**
  * Used to allow for the sharing of state between tasks.
  */
-export class Context<T extends object> {
-  private object!: { initial: object | undefined } & T;
+export class Context<TInitial, TContext> {
+  private object!: { initial: TInitial | undefined } & TContext;
   private updateQueue: Promise<void>;
 
-  constructor(initialObject?: object) {
-    this.reset(initialObject);
+  constructor(initialValue?: TInitial) {
+    this.reset(initialValue);
     this.updateQueue = Promise.resolve();
   }
 
   /**
    * Gets the current state of the managed object.
    */
-  public get value(): { initial: object | undefined } & T {
+  public get value(): { initial: TInitial | undefined } & TContext {
     return this.object;
   }
 
   /**
    * Resets the context to its initial state or a new initial object.
    */
-  public reset(initialObject?: object): void {
-    if (initialObject) {
-      this.object = { initial: { ...initialObject } } as {
-        initial: object | undefined;
-      } & T;
+  public reset(initialValue: TInitial | undefined): void {
+    if (initialValue !== undefined && initialValue !== null) {
+      this.object = { initial: initialValue } as {
+        initial: TInitial;
+      } & TContext;
     } else {
       this.object = { initial: undefined } as {
-        initial: object | undefined;
-      } & T;
+        initial: TInitial | undefined;
+      } & TContext;
     }
   }
 

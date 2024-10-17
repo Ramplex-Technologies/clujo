@@ -6,5 +6,5 @@ export default defineConfig({
 	format: ["cjs", "esm"],
 	sourcemap: true,
 	splitting: false,
-	target: "esnext",
+	target: "es2022",
 });

@@ -14,15 +14,16 @@
 	"module": "./dist/index.mjs",
 	"types": "./dist/index.d.ts",
 	"files": ["dist", "package.json"],
+	"type": "module",
 	"exports": {
 		".": {
 			"require": "./dist/index.js",
 			"import": "./dist/index.mjs",
-			"ty7pes": "./dist/index.d.ts"
+			"types": "./dist/index.d.ts"
 		}
 	},
 	"scripts": {
-		"build": "tsup ./src",
+		"build": "rm -r dist/ && tsup ./src",
 		"dev": "tsup --watch",
 		"lint": "biome check --write ./src"
 	},

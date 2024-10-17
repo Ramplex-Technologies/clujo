@@ -1,3 +1,3 @@
-export { ClujoBuilder } from "./clujo-builder";
+export { Clujo } from "./clujo";
 export { Scheduler } from "./scheduler";
-export { TaskGraphBuilder } from "./task-graph-builder";
+export { TaskGraph } from "./task-graph";

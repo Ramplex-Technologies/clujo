@@ -1,87 +1,57 @@
-import type { Redis } from "ioredis";
+import type { CronOptions } from "croner";
+import type { TaskGraphRunner } from "./task-graph";
+import { Cron } from "./cron";
+import type Redis from "ioredis";
 import { type LockOptions, Mutex } from "redis-semaphore";
-import type { IClujo, ILock, StartOptions, TErrorHandler, TExecute } from "./clujo.types";
-import type { ICron } from "./cron.types";
-import { TaskGraphBuilder } from "./task-graph-builder";
-import type { ITask, ITaskGraph, ITaskGraphBuilderHelper, RetryPolicy, TaskMap } from "./task-graph.types";
 
-export class Clujo<TDependencies, TContext extends object, TTaskMap extends TaskMap<TDependencies, TContext>>
-  implements IClujo<TDependencies, TContext, TTaskMap>
-{
-  private readonly taskGraphBuilder: ITaskGraphBuilderHelper<TDependencies, TContext, TTaskMap>;
-  private taskGraph: ITaskGraph<TContext> | undefined;
-  private hasStarted = false;
+export class Clujo<
+  TTaskDependencies extends Record<string, unknown>,
+  TTaskContext extends Record<string, unknown> & {
+    initial: unknown;
+  },
+> {
+  public readonly id: string;
 
-  constructor(
-    public readonly id: string,
-    private readonly cron: ICron,
-    private readonly retryPolicy: RetryPolicy,
-    private readonly runImmediately: boolean,
-    dependencies: TDependencies,
-    contextValueOrFactory: undefined | TContext | (() => TContext | Promise<TContext>),
-  ) {
-    this.taskGraphBuilder = new TaskGraphBuilder<TDependencies, TContext>()
-      .setDependencies(dependencies)
-      .setInitialContext(contextValueOrFactory)
-      .finalizeSetup();
+  private readonly _cron: Cron;
+  private readonly _taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext>;
+
+  private _hasStarted = false;
+  private _runImmediately = false;
+
+  constructor({
+    id,
+    taskGraphRunner,
+    cron,
+  }: {
+    id: string;
+    taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext>;
+    cron: { pattern: string; options?: CronOptions };
+  }) {
+    if (!id) throw new Error("Clujo ID is required.");
+    if (!taskGraphRunner) throw new Error("taskGraphRunner is required");
+    if (!cron.pattern) throw new Error("cron.pattern is required");
+    this.id = id;
+    this._taskGraphRunner = taskGraphRunner;
+    // TODO: validate pattern
+    this._cron = new Cron(cron.pattern, cron.options);
   }
 
-  addTask<TTaskId extends string, TExecuteReturn>(input: {
-    taskId: TTaskId;
-    // pick the keys of TTaskMap in TContext
-    execute: TExecute<TDependencies, TContext, TExecuteReturn>;
-    errorHandler?: TErrorHandler<TDependencies, TContext>;
-    retryPolicy?: RetryPolicy;
-    dependencies?: (keyof TTaskMap)[];
-  }): IClujo<
-    TDependencies,
-    TContext &
-      Partial<{
-        [K in TTaskId]: TExecuteReturn extends void ? undefined : TExecuteReturn;
-      }>,
-    TTaskMap & {
-      [K in TTaskId]: ITask<
-        TDependencies,
-        TExecuteReturn,
-        TContext &
-          Partial<{
-            [K in TTaskId]: TExecuteReturn extends void ? undefined : TExecuteReturn;
-          }>
-      >;
-    }
-  > {
-    if (this.hasStarted) throw new Error("Cannot add a task after the Clujo has started.");
-    this.taskGraphBuilder.addTask({
-      id: input.taskId,
-      execute: input.execute,
-      errorHandler: input.errorHandler,
-      retryPolicy: input.retryPolicy ?? this.retryPolicy,
-      dependencies: input.dependencies as string[] | undefined,
-    });
-    return this as unknown as IClujo<
-      TDependencies,
-      TContext & { [K in TTaskId]: TExecuteReturn extends void ? undefined : TExecuteReturn },
-      TTaskMap & {
-        [K in TTaskId]: ITask<
-          TDependencies,
-          TExecuteReturn,
-          TContext & { [K in TTaskId]: TExecuteReturn extends void ? undefined : TExecuteReturn }
-        >;
-      }
-    >;
+  public runOnStartup() {
+    this._runImmediately = true;
+    return this;
   }
 
-  start(options?: StartOptions<TContext>): IClujo<TDependencies, TContext, TTaskMap> {
-    if (this.hasStarted) throw new Error("Cannot start a Clujo that has already been started.");
-    if (!this.taskGraphBuilder.size) throw new Error("Cannot start a Clujo with no added tasks.");
-    // run the topological sort when starting as this is now a finalized task graph (graph invoked with trigger before start may no longer be valid)
-    this.taskGraph = this.taskGraphBuilder.build();
-    const redis = options?.redis;
-
+  public start({
+    redis,
+    onTaskCompletion,
+  }: {
+    redis?: { client: Redis; lockOptions?: LockOptions };
+    onTaskCompletion?: (ctx: Required<TTaskContext>) => void | Promise<void>;
+  } = {}) {
+    if (this._hasStarted) throw new Error("Cannot start a Clujo that has already started.");
     const executeTasksAndCompletionHandler = async () => {
-      if (!this.taskGraph) throw new Error("Task graph not initialized");
-      const finalContext = await this.taskGraph.run();
-      if (options?.completionHandler) await options.completionHandler(finalContext);
+      const finalContext = await this._taskGraphRunner.run();
+      if (onTaskCompletion) await onTaskCompletion(finalContext);
     };
 
     const handler = async () => {
@@ -89,7 +59,7 @@ export class Clujo<TDependencies, TContext extends object, TTaskMap extends Task
         if (!redis) {
           await executeTasksAndCompletionHandler();
         } else {
-          await using lock = await this.tryAcquire(redis, options?.options);
+          await using lock = await this._tryAcquire(redis.client, redis.lockOptions);
           if (lock) {
             await executeTasksAndCompletionHandler();
           }
@@ -98,24 +68,22 @@ export class Clujo<TDependencies, TContext extends object, TTaskMap extends Task
         console.error(`Clujo ${this.id} failed: ${error}`);
       }
     };
-    this.cron.start(handler);
-    this.hasStarted = true;
-    if (this.runImmediately) this.trigger();
+    this._cron.start(handler);
+    this._hasStarted = true;
+    if (this._runImmediately) this.trigger();
     return this;
   }
 
-  async stop(timeout = 5000): Promise<void> {
-    if (!this.hasStarted) throw new Error("Cannot stop a Clujo that has not been started.");
-    await this.cron.stop(timeout);
+  public async stop(timeout = 5000): Promise<void> {
+    if (!this._hasStarted) throw new Error("Cannot stop a Clujo that has not started.");
+    await this._cron.stop(timeout);
   }
 
-  async trigger(): Promise<Required<TContext>> {
-    if (!this.taskGraphBuilder.size) throw new Error("Cannot trigger a Clujo with no added tasks.");
-    if (!this.taskGraph) this.taskGraph = this.taskGraphBuilder.build();
-    return await this.taskGraph.run();
+  public async trigger(): Promise<Required<TTaskContext>> {
+    return await this._taskGraphRunner.run();
   }
 
-  private async tryAcquire(redis: Redis, lockOptions: LockOptions | undefined): Promise<ILock | null> {
+  private async _tryAcquire(redis: Redis, lockOptions: LockOptions | undefined): Promise<ILock | null> {
     const mutex = new Mutex(redis, this.id, lockOptions);
     const lock = await mutex.tryAcquire();
     if (!lock) return null;
@@ -130,4 +98,8 @@ export class Clujo<TDependencies, TContext extends object, TTaskMap extends Task
       },
     };
   }
+}
+
+interface ILock extends AsyncDisposable {
+  mutex: Mutex;
 }

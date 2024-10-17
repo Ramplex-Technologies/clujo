@@ -1,5 +1,5 @@
 import { CronOptions } from 'croner';
-import { TaskGraphRunner } from './task-graph.js';
+import { TaskGraphRunner } from './task-graph.cjs';
 import Redis from 'ioredis';
 import { LockOptions } from 'redis-semaphore';
 

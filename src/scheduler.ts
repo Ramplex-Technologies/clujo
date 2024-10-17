@@ -1,5 +1,5 @@
 import type Redis from "ioredis";
-import type { IClujo } from "./clujo.types";
+import type { Clujo } from "./clujo";
 
 /**
  * Scheduler class for managing and running Clujo jobs.
@@ -7,7 +7,7 @@ import type { IClujo } from "./clujo.types";
  */
 export class Scheduler {
   // biome-ignore lint/suspicious/noExplicitAny: handle any combination of clujo's
-  private readonly jobs: { job: IClujo<any, any, any>; completionHandler?: (ctx: any) => Promise<void> | void }[] = [];
+  private readonly jobs: { job: Clujo<any, any>; completionHandler?: (ctx: any) => Promise<void> | void }[] = [];
 
   /**
    * Adds a Clujo job to the scheduler.
@@ -15,9 +15,11 @@ export class Scheduler {
    * @param input.job - The Clujo job to be added.
    * @param input.completionHandler - Optional function to invoke after the job completes.
    */
-  public addJob<TDependencies, TContext>(input: {
-    // biome-ignore lint/suspicious/noExplicitAny: I do not want to type this
-    job: IClujo<TDependencies, TContext, any>;
+  public addJob<
+    TDependencies extends Record<string, unknown>,
+    TContext extends Record<string, unknown> & { initial: unknown },
+  >(input: {
+    job: Clujo<TDependencies, TContext>;
     completionHandler?: (ctx: Required<TContext>) => Promise<void> | void;
   }) {
     this.jobs.push(input);
@@ -29,7 +31,14 @@ export class Scheduler {
    */
   public start(redis?: Redis) {
     for (const { job, completionHandler } of this.jobs) {
-      job.start({ redis, completionHandler });
+      const options: Record<string, unknown> = {};
+      if (redis) {
+        options.redis = { client: redis };
+      }
+      if (completionHandler) {
+        options.onTaskCompletion = completionHandler;
+      }
+      job.start(options);
     }
   }
   /**

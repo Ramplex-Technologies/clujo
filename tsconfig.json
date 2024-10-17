@@ -1,13 +1,13 @@
 {
 	"compilerOptions": {
-		"lib": ["ES2021"],
+    "target": "es2022",
+    "lib": ["es2022", "esnext.disposable", "dom"],
 		"module": "commonjs",
-		"target": "ES2021",
 		"strict": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true
 	},
-	"include": ["src/**/*", "tsup.config.ts"],
+	"include": ["src/**/*" , "tsup.config.ts"],
 	"exclude": ["node_modules"]
 }

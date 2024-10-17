@@ -1,7 +1,6 @@
 import Croner, { type CronOptions } from "croner";
-import type { ICron } from "./cron.types";
 
-export class Cron implements ICron {
+export class Cron {
   private job: Croner | null = null;
 
   constructor(
@@ -35,6 +34,7 @@ export class Cron implements ICron {
           this.job.stop();
           this.job = null;
           resolve();
+          return;
         }
       };
 
