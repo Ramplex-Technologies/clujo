@@ -37,12 +37,26 @@ export class Cron {
     private readonly cronOptions?: CronOptions,
   ) {}
 
+  /**
+   * Starts the cron job with the specified handler.
+   *
+   * @param handler A function to be executed when the cron job triggers.
+   * @throws {Error} If attempting to start a job that has already been started.
+   */
   public start(handler: () => Promise<void> | void): void {
     if (this.job) throw new Error("Attempting to start an already started job");
     this.job = new Croner(this.cronExpression, this.cronOptions, handler);
   }
 
+  /**
+   * Stops the cron job. If the job is currently running, it will wait for the job to finish before stopping it.
+   * This can be safely invoked even if the job hasn't been started.
+   *
+   * @param timeout The maximum time (in ms) to wait for the job to finish before stopping it forcefully.
+   * @returns A promise that resolves when the job has been stopped
+   */
   public stop(timeout: number): Promise<void> {
+    if (!this.job) return Promise.resolve();
     return new Promise<void>((resolve) => {
       const startTime = Date.now();
       const checkAndStop = () => {
@@ -71,6 +85,12 @@ export class Cron {
     });
   }
 
+  /**
+   * Triggers the cron job to run immediately. A triggered execution will prevent the job from running at its scheduled time
+   * unless `preventOverlap` is set to `false` in the cron options.
+   *
+   * @throws {Error} If attempting to trigger a job that is not running.
+   */
   public async trigger(): Promise<void> {
     if (!this.job) throw new Error("Attempting to trigger a job that is not running");
     await this.job.trigger();
