@@ -1,6 +1,12 @@
 # clujo
 
-Clujo is a flexible solution for managing scheduled tasks in distributed systems. At a glance:
+Clujo is a flexible solution for managing scheduled tasks in distributed systems. It would not be possible without the amazing work of the following projects:
+
+- [Croner](https://github.com/Hexagon/croner/tree/master?tab=readme-ov-file): used for running task graphs on a cron schedule
+- [ioredis](https://github.com/redis/ioredis) - (only used if an `ioredis` instance is provided to start method) used to ensure single execution in a distributed environment
+- [redis-semaphore](https://github.com/swarthy/redis-semaphore) (only used if an `ioredis` instance is provided to start method) - used to ensure single execution in a distributed environment
+
+# Features
 
 - Clujo provides an intuitive interface for setting up cron-like schedules, making it easy to create and manage recurring tasks.
 - Clujo's task orchestration allows you to define and execute a set of interdependent tasks, running independent tasks in parallel when possible while ensuring dependent tasks wait for their prerequisites.
