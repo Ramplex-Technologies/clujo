@@ -33,10 +33,14 @@ var Scheduler = class {
    * @param input.completionHandler - Optional function to invoke after the job completes.
    */
   addJob(input) {
+    if (this.jobs.some(({ job }) => job.id === input.job.id)) {
+      throw new Error(`Job with id ${input.job.id} is already added to the scheduler.`);
+    }
     this.jobs.push(input);
   }
   /**
    * Starts all added jobs in the scheduler.
+   *
    * @param redis - Optional Redis instance to be passed to the jobs. If provided, enables distributed locking.
    */
   start(redis) {
@@ -53,10 +57,11 @@ var Scheduler = class {
   }
   /**
    * Stops all running jobs in the scheduler.
-   * @param timeout - The maximum time (in milliseconds) to wait for jobs to stop.
+   *
+   * @param timeout - The maximum time (in milliseconds) to wait for jobs to stop. Defaults to 5000ms.
    * @returns A promise that resolves when all jobs have stopped or the timeout is reached.
    */
-  async stop(timeout) {
+  async stop(timeout = 5e3) {
     await Promise.all(this.jobs.map(({ job }) => job.stop(timeout)));
   }
 };

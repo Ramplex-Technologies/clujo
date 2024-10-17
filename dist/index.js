@@ -144,7 +144,6 @@ var Clujo = class {
   _cron;
   _taskGraphRunner;
   _hasStarted = false;
-  _runImmediately = false;
   constructor({
     id,
     taskGraphRunner,
@@ -157,19 +156,37 @@ var Clujo = class {
     this._taskGraphRunner = taskGraphRunner;
     this._cron = new Cron(cron.pattern, cron.options);
   }
-  runOnStartup() {
-    if (this._hasStarted) throw new Error("Cannot run on startup after starting a Clujo.");
-    this._runImmediately = true;
-    return this;
-  }
+  /**
+   * Starts the cron job, which will execute the task graph according to the cron schedule.
+   * If a redis client instance is provided, a lock will be acquired before executing the task graph, preventing overlapping executions.
+   *
+   * @param redis The Redis client to use for locking.
+   * @param onTaskCompletion An optional function to execute after the task graph has completed.
+   * @param runImmediately An optional boolean which, if set to true, executes the task graph immediately upon starting.
+   *    The overlap behavior here depends on if a lock is used (never any overlap), or if `preventOverlap` was disabled (
+   *    in which case there is overlap between multiple instances of the same Clujo).
+   * @returns The Clujo instance.
+   * @throws An error if the Clujo has already started.
+   */
   start({
     redis,
-    onTaskCompletion
+    onTaskCompletion,
+    runImmediately
   } = {
     redis: void 0,
-    onTaskCompletion: void 0
+    onTaskCompletion: void 0,
+    runImmediately: false
   }) {
     if (this._hasStarted) throw new Error("Cannot start a Clujo that has already started.");
+    if (redis) {
+      if (!redis.client) throw new Error("Redis client is required.");
+    }
+    if (onTaskCompletion && typeof onTaskCompletion !== "function") {
+      throw new Error("onTaskCompletion must be a function (sync or async).");
+    }
+    if (runImmediately && typeof runImmediately !== "boolean") {
+      throw new Error("runImmediately must be a boolean.");
+    }
     const executeTasksAndCompletionHandler = async () => {
       const finalContext = await this._taskGraphRunner.run();
       if (onTaskCompletion) await onTaskCompletion(finalContext);
@@ -195,16 +212,38 @@ var Clujo = class {
     };
     this._cron.start(handler);
     this._hasStarted = true;
-    if (this._runImmediately) this._cron.trigger();
+    if (runImmediately) this._cron.trigger();
     return this;
   }
+  /**
+   * Stops the cron job and prevents any further executions of the task graph.
+   * If the task graph is currently executing, it will be allowed to finish for up to the specified timeout.
+   *
+   * @param timeout The maximum time to wait for the task graph to finish executing before stopping the cron.
+   * @returns A promise that resolves when the cron has stopped.
+   * @throws An error if the Clujo has not started.
+   */
   async stop(timeout = 5e3) {
     if (!this._hasStarted) throw new Error("Cannot stop a Clujo that has not started.");
     await this._cron.stop(timeout);
   }
+  /**
+   * Trigger an execution of the task graph immediately, independent of the cron schedule.
+   * In the event the cron is running, the task graph will still execute.
+   *
+   * @returns The final context of the task graph.
+   */
   async trigger() {
     return await this._taskGraphRunner.run();
   }
+  /**
+   * Tries to acquire a lock from redis-semaphore. If the lock is acquired, the lock will be released when the lock is disposed.
+   *
+   * @param redis The Redis client to use.
+   * @param lockOptions The options to use when acquiring the lock.
+   *
+   * @returns An AsyncDisposable lock if it was acquired, otherwise null.
+   */
   async _tryAcquire(redis, lockOptions) {
     const mutex = new import_redis_semaphore.Mutex(redis, this.id, lockOptions);
     const lock = await mutex.tryAcquire();
@@ -233,10 +272,14 @@ var Scheduler = class {
    * @param input.completionHandler - Optional function to invoke after the job completes.
    */
   addJob(input) {
+    if (this.jobs.some(({ job }) => job.id === input.job.id)) {
+      throw new Error(`Job with id ${input.job.id} is already added to the scheduler.`);
+    }
     this.jobs.push(input);
   }
   /**
    * Starts all added jobs in the scheduler.
+   *
    * @param redis - Optional Redis instance to be passed to the jobs. If provided, enables distributed locking.
    */
   start(redis) {
@@ -253,10 +296,11 @@ var Scheduler = class {
   }
   /**
    * Stops all running jobs in the scheduler.
-   * @param timeout - The maximum time (in milliseconds) to wait for jobs to stop.
+   *
+   * @param timeout - The maximum time (in milliseconds) to wait for jobs to stop. Defaults to 5000ms.
    * @returns A promise that resolves when all jobs have stopped or the timeout is reached.
    */
-  async stop(timeout) {
+  async stop(timeout = 5e3) {
     await Promise.all(this.jobs.map(({ job }) => job.stop(timeout)));
   }
 };

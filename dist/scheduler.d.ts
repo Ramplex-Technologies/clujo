@@ -24,15 +24,17 @@ declare class Scheduler {
     }): void;
     /**
      * Starts all added jobs in the scheduler.
+     *
      * @param redis - Optional Redis instance to be passed to the jobs. If provided, enables distributed locking.
      */
     start(redis?: Redis): void;
     /**
      * Stops all running jobs in the scheduler.
-     * @param timeout - The maximum time (in milliseconds) to wait for jobs to stop.
+     *
+     * @param timeout - The maximum time (in milliseconds) to wait for jobs to stop. Defaults to 5000ms.
      * @returns A promise that resolves when all jobs have stopped or the timeout is reached.
      */
-    stop(timeout: number): Promise<void>;
+    stop(timeout?: number): Promise<void>;
 }
 
 export { Scheduler };
