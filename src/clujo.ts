@@ -68,6 +68,7 @@ export class Clujo<
   }
 
   public runOnStartup() {
+    if (this._hasStarted) throw new Error("Cannot run on startup after starting a Clujo.");
     this._runImmediately = true;
     return this;
   }
@@ -92,13 +93,10 @@ export class Clujo<
 
     const handler = async () => {
       try {
-        if (!redis) {
-          await executeTasksAndCompletionHandler();
-        } else {
+        if (!redis) await executeTasksAndCompletionHandler();
+        else {
           await using lock = await this._tryAcquire(redis.client, redis.lockOptions);
-          if (lock) {
-            await executeTasksAndCompletionHandler();
-          }
+          if (lock) await executeTasksAndCompletionHandler();
         }
       } catch (error) {
         console.error(`Clujo ${this.id} failed: ${error}`);
@@ -106,7 +104,9 @@ export class Clujo<
     };
     this._cron.start(handler);
     this._hasStarted = true;
-    if (this._runImmediately) this.trigger();
+    // we use the cron trigger here so that prevent overlapping is active by default
+    // i.e., if no lock is used, and the trigger is executing, and the schedule time is reached, the scheduled execution will be skipped
+    if (this._runImmediately) this._cron.trigger();
     return this;
   }
 
@@ -116,6 +116,7 @@ export class Clujo<
   }
 
   public async trigger(): Promise<Required<TTaskContext>> {
+    // we do not trigger via the cron here so that we can make use of the result of the task graph
     return await this._taskGraphRunner.run();
   }
 
