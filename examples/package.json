@@ -6,6 +6,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "clujo": "^1.0.0"
+    "clujo": "^1.0.1"
   }
 }

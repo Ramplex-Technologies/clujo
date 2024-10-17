@@ -9,16 +9,16 @@ importers:
   .:
     dependencies:
       clujo:
-        specifier: ^1.0.0
-        version: 1.0.0
+        specifier: ^1.0.1
+        version: 1.0.1
 
 packages:
 
   '@ioredis/commands@1.2.0':
     resolution: {integrity: sha512-Sx1pU8EM64o2BrqNpEO1CNLtKQwyhuXuqyfH7oGKCk+1a33d2r5saW8zNwm3j6BTExtjrv2BxTgzzkMwts6vGg==}
 
-  clujo@1.0.0:
-    resolution: {integrity: sha512-eaU1SasUE5szc+KQYvuCSkynvGMUdKw2eiaUIfdNsqp2N8myNTZu8EhLbdZaO3lks/KItWufVW00CHnT+97GFw==}
+  clujo@1.0.1:
+    resolution: {integrity: sha512-8KFAm7f2NskFE/8DaGLs9fqTEnFxIWvLZC5gO+fYIG8s8QQ6fy9HrygzAIUh35XgGPBDKS4CofhL8W8P+Up3sw==}
 
   cluster-key-slot@1.1.2:
     resolution: {integrity: sha512-RMr0FhtfXemyinomL4hrWcYJxmX6deFdCxpJzhDttxgO1+bcCnkk+9drydLVDmAMG7NE6aN/fl4F7ucU/90gAA==}
@@ -78,7 +78,7 @@ snapshots:
 
   '@ioredis/commands@1.2.0': {}
 
-  clujo@1.0.0:
+  clujo@1.0.1:
     dependencies:
       croner: 8.1.2
       ioredis: 5.4.1
