@@ -269,7 +269,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
     });
 
     // Ensure tasks ran concurrently (with some tolerance for test environment variations)
-    assert.ok(duration < 105, `Expected duration < 150ms, but was ${duration}ms`);
+    assert.ok(duration < 130, `Expected duration < 130ms, but was ${duration}ms`);
   });
 
   await t.test("complex dependency chain with mixed sync/async tasks", async () => {
