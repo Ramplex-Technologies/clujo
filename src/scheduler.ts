@@ -28,7 +28,7 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import type { Clujo } from "./clujo";
 
 /**
