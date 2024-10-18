@@ -3,5 +3,12 @@
     "language_server": {
       "name": "biome"
     }
+  },
+  "lsp": {
+    "biome": {
+      "settings": {
+        "config_path": "biome.json"
+      }
+    }
   }
 }
