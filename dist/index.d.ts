@@ -4,3 +4,4 @@ export { TaskGraph } from './task-graph.js';
 import 'croner';
 import 'ioredis';
 import 'redis-semaphore';
+import './task.js';

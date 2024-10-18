@@ -1,8 +1,9 @@
 import { Clujo } from './clujo.js';
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import './task-graph.js';
 import 'croner';
 import 'redis-semaphore';
+import './task.js';
 
 /**
  * Scheduler class for managing and running Clujo jobs.

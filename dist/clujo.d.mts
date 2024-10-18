@@ -2,6 +2,7 @@ import { CronOptions } from 'croner';
 import { Redis } from 'ioredis';
 import { LockOptions } from 'redis-semaphore';
 import { TaskGraphRunner } from './task-graph.mjs';
+import './task.mjs';
 
 declare class Clujo<TTaskDependencies extends Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
     initial: unknown;

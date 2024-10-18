@@ -1,3 +1,5 @@
+import { TaskOptions, Task } from './task.js';
+
 declare class TaskGraph<TTaskDependencies extends Record<string, unknown> = Record<string, never>, TTaskContext extends Record<string, unknown> & {
     initial: unknown;
 } = {
@@ -100,36 +102,5 @@ declare class TaskGraphRunner<TTaskDependencies extends Record<string, unknown>,
      */
     run(): Promise<TTaskContext>;
 }
-declare class Task<TTaskDependencies extends Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
-    initial: unknown;
-}, TTaskReturn, TPossibleTaskId> {
-    private readonly options;
-    private readonly _dependencies;
-    private _retryPolicy;
-    private _status;
-    constructor(options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, string>);
-    addDependency(taskId: TPossibleTaskId): void;
-    get dependencies(): TPossibleTaskId[];
-    get id(): string;
-    run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn>;
-    get status(): TaskStatus;
-}
-type RetryPolicy = {
-    maxRetries: number;
-    retryDelayMs: number;
-};
-type TaskOptions<TTaskId extends string, TTaskDependencies extends Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
-    initial: unknown;
-}, TTaskReturn, TPossibleTaskDependencyId extends string = never, TInput = {
-    deps: TTaskDependencies;
-    ctx: TTaskContext;
-}> = {
-    id: TTaskId;
-    dependencies?: TPossibleTaskDependencyId[];
-    retryPolicy?: RetryPolicy;
-    execute: (input: TInput) => Promise<TTaskReturn> | TTaskReturn;
-    errorHandler?: (err: Error, input: TInput) => Promise<void> | void;
-};
-type TaskStatus = "pending" | "completed" | "failed" | "running";
 
 export { TaskGraph, TaskGraphRunner };

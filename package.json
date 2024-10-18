@@ -43,7 +43,8 @@
     }
   },
   "scripts": {
-    "build": "rm -r dist/ && tsup ./src",
+    "clean": "rimraf dist",
+    "build": "pnpm clean && tsup ./src",
     "dev": "tsup --watch",
     "lint": "biome check --write ./src",
     "test": "node -r esbuild-register --test tests/*.test.ts"
@@ -51,7 +52,8 @@
   "dependencies": {
     "croner": "^9.0.0",
     "ioredis": "^5.4.1",
-    "redis-semaphore": "^5.6.1"
+    "redis-semaphore": "^5.6.1",
+    "rimraf": "^6.0.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
