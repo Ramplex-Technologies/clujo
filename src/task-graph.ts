@@ -230,8 +230,9 @@ export class TaskGraphRunner<
    * @returns A promise that resolves to the completed context object when all tasks have completed.
    */
   async run(): Promise<TTaskContext> {
-    if (this._topologicalOrder.length === 0)
+    if (this._topologicalOrder.length === 0) {
       throw new Error("No tasks to run. Did you forget to call topologicalSort?");
+    }
 
     let value: TTaskContext["initial"] | undefined;
     if (this._contextValueOrFactory) {
@@ -245,7 +246,11 @@ export class TaskGraphRunner<
     const completed = new Set<string>();
     const running = new Map<string, Promise<void>>();
     const readyTasks = new Set<string>(
-      this._topologicalOrder.filter((taskId) => this._tasks.get(taskId)?.dependencies.length === 0),
+      this._topologicalOrder.filter((taskId) => {
+        const task = this._tasks.get(taskId);
+        if (!task) throw new Error(`Task ${taskId} not found`);
+        return task.dependencies.length === 0;
+      }),
     );
 
     const runTask = async (taskId: string) => {
