@@ -25,7 +25,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Context } from "../src/context";
+import { Context } from "../src/_context";
 
 test("Context", async (t) => {
   await t.test("constructor with no initial value", () => {

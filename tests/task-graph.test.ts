@@ -26,7 +26,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { TaskGraph, TaskGraphRunner, type TaskGraphBuilder } from "../src/task-graph";
-import type { TaskOptions } from "../src/task";
+import type { TaskOptions } from "../src/_task";
 
 test("TaskGraph", async (t) => {
   await t.test("setContext with value", () => {

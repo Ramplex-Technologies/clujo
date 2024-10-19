@@ -17,7 +17,7 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/task.ts
+// src/_task.ts
 var task_exports = {};
 __export(task_exports, {
   Task: () => Task
@@ -119,4 +119,4 @@ var sleep = (0, import_node_util.promisify)(setTimeout);
 0 && (module.exports = {
   Task
 });
-//# sourceMappingURL=task.js.map
+//# sourceMappingURL=_task.js.map

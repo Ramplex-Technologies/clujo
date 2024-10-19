@@ -1,4 +1,4 @@
-// src/task.ts
+// src/_task.ts
 import { promisify } from "node:util";
 var Task = class {
   constructor(options) {
@@ -94,4 +94,4 @@ var sleep = promisify(setTimeout);
 export {
   Task
 };
-//# sourceMappingURL=task.mjs.map
+//# sourceMappingURL=_task.mjs.map

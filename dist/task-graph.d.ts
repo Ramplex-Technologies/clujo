@@ -1,4 +1,4 @@
-import { TaskOptions, Task } from './task.js';
+import { TaskOptions, Task } from './_task.js';
 
 /**
  * Represents a task graph that can be built and executed.

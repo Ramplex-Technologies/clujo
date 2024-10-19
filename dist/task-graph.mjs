@@ -1,4 +1,4 @@
-// src/context.ts
+// src/_context.ts
 var Context = class {
   object;
   updateQueue;
@@ -34,7 +34,7 @@ var Context = class {
   }
 };
 
-// src/task.ts
+// src/_task.ts
 import { promisify } from "node:util";
 var Task = class {
   constructor(options) {

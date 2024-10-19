@@ -26,7 +26,7 @@ __export(task_graph_exports, {
 });
 module.exports = __toCommonJS(task_graph_exports);
 
-// src/context.ts
+// src/_context.ts
 var Context = class {
   object;
   updateQueue;
@@ -62,7 +62,7 @@ var Context = class {
   }
 };
 
-// src/task.ts
+// src/_task.ts
 var import_node_util = require("util");
 var Task = class {
   constructor(options) {

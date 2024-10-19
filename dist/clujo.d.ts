@@ -2,7 +2,7 @@ import { CronOptions } from 'croner';
 import { Redis } from 'ioredis';
 import { LockOptions } from 'redis-semaphore';
 import { TaskGraphRunner } from './task-graph.js';
-import './task.js';
+import './_task.js';
 
 /**
  * Represents a Clujo instance, which is a cron job that executes a task graph.

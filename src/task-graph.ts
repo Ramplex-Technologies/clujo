@@ -23,8 +23,8 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import { Context } from "./context";
-import { Task, type TaskOptions } from "./task";
+import { Context } from "./_context";
+import { Task, type TaskOptions } from "./_task";
 
 /**
  * Represents a task graph that can be built and executed.

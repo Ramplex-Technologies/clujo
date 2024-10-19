@@ -1,4 +1,4 @@
-// src/context.ts
+// src/_context.ts
 var Context = class {
   object;
   updateQueue;
@@ -36,4 +36,4 @@ var Context = class {
 export {
   Context
 };
-//# sourceMappingURL=context.mjs.map
+//# sourceMappingURL=_context.mjs.map

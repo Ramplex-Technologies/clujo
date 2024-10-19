@@ -32,7 +32,7 @@
 import type { CronOptions } from "croner";
 import type { Redis } from "ioredis";
 import { type LockOptions, Mutex } from "redis-semaphore";
-import { Cron } from "./cron";
+import { Cron } from "./_cron";
 import type { TaskGraphRunner } from "./task-graph";
 
 /**

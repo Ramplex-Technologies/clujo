@@ -1,4 +1,4 @@
-import { TaskOptions, Task } from './task.mjs';
+import { TaskOptions, Task } from './_task.mjs';
 
 /**
  * Represents a task graph that can be built and executed.
