@@ -8,6 +8,6 @@
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true
 	},
-	"include": ["src/**/*", "text/**/*", "tsup.config.ts"],
-	"exclude": ["node_modules"]
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "test/**/*", "tsup.config.ts"]
 }
