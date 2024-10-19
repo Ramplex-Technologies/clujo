@@ -33,7 +33,7 @@ export class Cron {
   private job: Croner | null = null;
 
   constructor(
-    private readonly cronExpression: string,
+    private readonly cronExpression: string | Date,
     private readonly cronOptions?: CronOptions,
   ) {}
 
