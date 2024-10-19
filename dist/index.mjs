@@ -628,9 +628,17 @@ var TaskGraphRunner = class {
     return this.context.value;
   }
 };
-export {
+
+// src/index.ts
+var src_default = {
   Clujo,
   Scheduler,
   TaskGraph
+};
+export {
+  Clujo,
+  Scheduler,
+  TaskGraph,
+  src_default as default
 };
 //# sourceMappingURL=index.mjs.map

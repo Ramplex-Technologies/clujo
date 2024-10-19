@@ -67,7 +67,8 @@ var src_exports = {};
 __export(src_exports, {
   Clujo: () => Clujo,
   Scheduler: () => Scheduler,
-  TaskGraph: () => TaskGraph
+  TaskGraph: () => TaskGraph,
+  default: () => src_default
 });
 module.exports = __toCommonJS(src_exports);
 
@@ -654,6 +655,13 @@ var TaskGraphRunner = class {
     }
     return this.context.value;
   }
+};
+
+// src/index.ts
+var src_default = {
+  Clujo,
+  Scheduler,
+  TaskGraph
 };
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

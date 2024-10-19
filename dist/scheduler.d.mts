@@ -1,8 +1,8 @@
-import { Clujo } from './clujo.mjs';
 import { Redis } from 'ioredis';
-import './task-graph.mjs';
+import { Clujo } from './clujo.mjs';
 import 'croner';
 import 'redis-semaphore';
+import './task-graph.mjs';
 import './_task.mjs';
 
 /**
