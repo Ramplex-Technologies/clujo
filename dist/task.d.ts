@@ -1,13 +1,54 @@
+/**
+ * Represents the options for a task.
+ *
+ * @template TTaskId - string literal type representing the task ID
+ * @template TTaskDependencies - Type of task dependencies passed into the task execution function
+ * @template TTaskContext - Type of task context passed into the task execution function
+ * @template TTaskReturn - Type of task return value
+ * @template TPossibleTaskDependencyId - string literal type representing the possible dependencies of this task
+ * @template TInput - Type of the input object passed into the task execution function and error handler
+ *
+ */
 type TaskOptions<TTaskId extends string, TTaskDependencies extends Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
     initial: unknown;
 }, TTaskReturn, TPossibleTaskDependencyId extends string = never, TInput = {
     deps: TTaskDependencies;
     ctx: TTaskContext;
 }> = {
+    /**
+     * The unique ID of the task.
+     */
     id: TTaskId;
+    /**
+     * The dependencies of the task.
+     */
     dependencies?: TPossibleTaskDependencyId[];
+    /**
+     * The retry policy for the task.
+     *
+     * @default { maxRetries: 0, retryDelayMs: 0 }
+     */
     retryPolicy?: RetryPolicy;
+    /**
+     * The function that executes the task.
+     * This function receives the task dependencies and context as input. It can be synchronous or asynchronous.
+     *
+     * @param input - The input object containing the task dependencies and context
+     * @returns The return value of the task
+     * @throws An error if the task execution fails after all retry attempts
+     */
     execute: (input: TInput) => Promise<TTaskReturn> | TTaskReturn;
+    /**
+     * An optional error handler for the task.
+     * This function receives an error and the input object as input. It can be synchronous or asynchronous.
+     * When an error handler is provided, it will be invoked when the task execution fails after all retry attempts.
+     * The error will still be thrown after the error handler has been executed.
+     *
+     * @param err - The error that occurred during task execution
+     * @param input - The input object containing the task dependencies and context
+     * @returns A promise that resolves when the error has been handled
+     * @default console.error
+     */
     errorHandler?: (err: Error, input: TInput) => Promise<void> | void;
 };
 /**
