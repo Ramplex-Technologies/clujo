@@ -1,5 +1,5 @@
-import * as util from "node:util";
-import { TaskGraph, Clujo } from "clujo";
+const util = require("node:util");
+const { TaskGraph, Clujo } = require("clujo");
 
 const sleep = util.promisify(setTimeout);
 

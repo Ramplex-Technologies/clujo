@@ -9,23 +9,23 @@ importers:
   .:
     dependencies:
       clujo:
-        specifier: ^1.0.1
-        version: 1.0.1
+        specifier: ^1.1.1
+        version: 1.1.1(ioredis@5.4.1)
 
 packages:
 
   '@ioredis/commands@1.2.0':
     resolution: {integrity: sha512-Sx1pU8EM64o2BrqNpEO1CNLtKQwyhuXuqyfH7oGKCk+1a33d2r5saW8zNwm3j6BTExtjrv2BxTgzzkMwts6vGg==}
 
-  clujo@1.0.1:
-    resolution: {integrity: sha512-8KFAm7f2NskFE/8DaGLs9fqTEnFxIWvLZC5gO+fYIG8s8QQ6fy9HrygzAIUh35XgGPBDKS4CofhL8W8P+Up3sw==}
+  clujo@1.1.1:
+    resolution: {integrity: sha512-U+fZ70gXeOR49vgB7r/ddkqYlV9dv6MQTMkCFBFd71jHlEFma8dPQpLfegQDW7izOEyigx0wDY90Fcacp/0r3w==}
 
   cluster-key-slot@1.1.2:
     resolution: {integrity: sha512-RMr0FhtfXemyinomL4hrWcYJxmX6deFdCxpJzhDttxgO1+bcCnkk+9drydLVDmAMG7NE6aN/fl4F7ucU/90gAA==}
     engines: {node: '>=0.10.0'}
 
-  croner@8.1.2:
-    resolution: {integrity: sha512-ypfPFcAXHuAZRCzo3vJL6ltENzniTjwe/qsLleH1V2/7SRDjgvRQyrLmumFTLmjFax4IuSxfGXEn79fozXcJog==}
+  croner@9.0.0:
+    resolution: {integrity: sha512-onMB0OkDjkXunhdW9htFjEhqrD54+M94i6ackoUkjHKbRnXdyEyKRelp4nJ1kAz32+s27jP1FsebpJCVl0BsvA==}
     engines: {node: '>=18.0'}
 
   debug@4.3.7:
@@ -76,25 +76,28 @@ packages:
 
 snapshots:
 
-  '@ioredis/commands@1.2.0': {}
+  '@ioredis/commands@1.2.0':
+    optional: true
 
-  clujo@1.0.1:
+  clujo@1.1.1(ioredis@5.4.1):
     dependencies:
-      croner: 8.1.2
-      ioredis: 5.4.1
+      croner: 9.0.0
       redis-semaphore: 5.6.1(ioredis@5.4.1)
     transitivePeerDependencies:
+      - ioredis
       - supports-color
 
-  cluster-key-slot@1.1.2: {}
+  cluster-key-slot@1.1.2:
+    optional: true
 
-  croner@8.1.2: {}
+  croner@9.0.0: {}
 
   debug@4.3.7:
     dependencies:
       ms: 2.1.3
 
-  denque@2.1.0: {}
+  denque@2.1.0:
+    optional: true
 
   ioredis@5.4.1:
     dependencies:
@@ -109,18 +112,23 @@ snapshots:
       standard-as-callback: 2.1.0
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
-  lodash.defaults@4.2.0: {}
+  lodash.defaults@4.2.0:
+    optional: true
 
-  lodash.isarguments@3.1.0: {}
+  lodash.isarguments@3.1.0:
+    optional: true
 
   ms@2.1.3: {}
 
-  redis-errors@1.2.0: {}
+  redis-errors@1.2.0:
+    optional: true
 
   redis-parser@3.0.0:
     dependencies:
       redis-errors: 1.2.0
+    optional: true
 
   redis-semaphore@5.6.1(ioredis@5.4.1):
     dependencies:
@@ -130,4 +138,5 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  standard-as-callback@2.1.0: {}
+  standard-as-callback@2.1.0:
+    optional: true
