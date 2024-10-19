@@ -25,7 +25,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { TaskGraph, type TaskGraphBuilder } from "../src/task-graph";
+import { TaskGraph, TaskGraphRunner, type TaskGraphBuilder } from "../src/task-graph";
 import type { TaskOptions } from "../src/task";
 
 test("TaskGraph", async (t) => {
@@ -54,6 +54,20 @@ test("TaskGraph", async (t) => {
     const result = taskGraph.setDependencies(dependencies);
 
     assert.equal(result, taskGraph);
+  });
+
+  await t.test("setDependencies with non object", () => {
+    const taskGraph = new TaskGraph();
+
+    // biome-ignore lint/suspicious/noExplicitAny: fake the input
+    assert.throws(() => taskGraph.setDependencies("invalid" as any), /Initial dependencies must be an object/);
+  });
+
+  await t.test("setDependencies with non object values", () => {
+    const taskGraph = new TaskGraph();
+
+    // biome-ignore lint/suspicious/noExplicitAny: fake the input
+    assert.throws(() => taskGraph.setDependencies(null as any), /Initial dependencies must be an object/);
   });
 
   await t.test("finalize returns TaskGraphBuilder", () => {
@@ -125,6 +139,18 @@ test("TaskGraphBuilder", async (t) => {
 
     // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
     assert.throws(() => builder.addTask(task as any), /Dependency ID must be a string/);
+  });
+
+  await t.test("addTask with existing task id throws", async () => {
+    const builder = new TaskGraph().finalize();
+    const task = {
+      id: "task1",
+      execute: () => Promise.resolve("result1"),
+    };
+
+    builder.addTask(task);
+
+    assert.throws(() => builder.addTask(task), /Task with id task1 already exists/);
   });
 
   await t.test("addTask with dependency that does not exist throws", async () => {
@@ -231,6 +257,25 @@ test("TaskGraphRunner", async (t) => {
 });
 
 test("TaskGraphRunner - Complex Scenarios", async (t) => {
+  await t.test("no tasks throws", async () => {
+    const builder = new TaskGraph().finalize();
+
+    assert.throws(() => builder.build(), /Unable to build TaskGraphRunner. No tasks added to the graph/);
+  });
+
+  await t.test("running with empty topological order throws", async () => {
+    const runner = new TaskGraphRunner({}, undefined, [], new Map());
+
+    await assert.rejects(runner.run(), /No tasks to run. Did you forget to call topologicalSort?/);
+  });
+
+  await t.test("running with no context value throws", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: faking input
+    const runner = new TaskGraphRunner({}, undefined, ["task1"], new Map<any, any>([["task2", { id: "task1" }]]));
+
+    await assert.rejects(runner.run(), /Task task1 not found/);
+  });
+
   await t.test("mix of sync and async tasks with dependencies", async (t) => {
     const executionOrder: string[] = [];
     const runner = new TaskGraph()
@@ -325,7 +370,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
   });
 
   await t.test("concurrent execution of independent tasks", async () => {
-    const builder = new TaskGraph().finalize();
+    const builder = new TaskGraph().setContext(10).finalize();
     const startTime = Date.now();
 
     builder.addTask({
@@ -350,7 +395,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
     const duration = Date.now() - startTime;
 
     assert.deepEqual(result, {
-      initial: undefined,
+      initial: 10,
       asyncTask1: "result1",
       asyncTask2: "result2",
     });
@@ -362,6 +407,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
   await t.test("complex dependency chain with mixed sync/async tasks", async () => {
     const executionOrder: string[] = [];
     const runner = new TaskGraph()
+      .setContext(() => ({ initialValue: 10 }))
       .finalize()
       .addTask({
         id: "start",
@@ -417,7 +463,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
     const result = await runner.run();
 
     assert.deepEqual(result, {
-      initial: undefined,
+      initial: { initialValue: 10 },
       start: "start",
       async1: "async1",
       sync1: "sync1",
