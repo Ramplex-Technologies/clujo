@@ -88,7 +88,7 @@ class TaskGraphBuilder<
   TTaskContext extends Record<string, unknown> & { initial: unknown },
   TAllDependencyIds extends string = string & keyof Omit<TTaskContext, "initial">,
 > {
-  private readonly _tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown, TAllDependencyIds>>();
+  private readonly _tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown>>();
   private readonly _topologicalOrder: string[] = [];
 
   constructor(
@@ -121,7 +121,7 @@ class TaskGraphBuilder<
   ) {
     const taskId = options.id;
     if (this._tasks.has(taskId)) throw new Error(`Task with id ${taskId} already exists`);
-    const task = new Task<TTaskDependencies, TTaskContext, TTaskReturn, TAllDependencyIds>(options);
+    const task = new Task<TTaskDependencies, TTaskContext, TTaskReturn>(options);
     this._tasks.set(taskId, task);
 
     for (const depId of options.dependencies ?? []) {
@@ -198,7 +198,7 @@ export class TaskGraphRunner<
     private _dependencies: TTaskDependencies,
     private _contextValueOrFactory: undefined | TTaskContext | (() => TTaskContext | Promise<TTaskContext>),
     private readonly _topologicalOrder: string[],
-    private readonly _tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>,
+    private readonly _tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>,
   ) {}
 
   /**

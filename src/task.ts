@@ -46,9 +46,8 @@ export class Task<
   TTaskDependencies extends Record<string, unknown>,
   TTaskContext extends Record<string, unknown> & { initial: unknown },
   TTaskReturn,
-  TPossibleTaskId,
 > {
-  private readonly _dependencies: TPossibleTaskId[] = [];
+  private readonly _dependencies: string[] = [];
 
   private _retryPolicy: RetryPolicy = { maxRetries: 0, retryDelayMs: 0 };
   private _status: TaskStatus = "pending";
@@ -60,7 +59,7 @@ export class Task<
     }
   }
 
-  public addDependency(taskId: TPossibleTaskId) {
+  public addDependency(taskId: string) {
     this._dependencies.push(taskId);
   }
 
