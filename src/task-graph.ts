@@ -26,6 +26,12 @@
 import { Context } from "./context";
 import { Task, type TaskOptions } from "./task";
 
+/**
+ * Represents a task graph that can be built and executed.
+ *
+ * @template TTaskDependencies - Type of the dependencies each task will receive
+ * @template TTaskContext - Type of the context each task will receive
+ */
 export class TaskGraph<
   TTaskDependencies extends Record<string, unknown> = Record<string, never>,
   TTaskContext extends Record<string, unknown> & { initial: unknown } = { initial: unknown },
@@ -83,6 +89,14 @@ export class TaskGraph<
   }
 }
 
+/**
+ * Represents a task graph builder that can be used to add tasks to the graph.
+ * When built, the graph will be sorted topologically and returned as a `TaskGraphRunner` instance.
+ *
+ * @template TTaskDependencies - Type of the dependencies each task will receive
+ * @template TTaskContext - Type of the context each task will receive
+ * @template TAllDependencyIds - The task IDs that can be used as dependencies for new tasks
+ */
 class TaskGraphBuilder<
   TTaskDependencies extends Record<string, unknown>,
   TTaskContext extends Record<string, unknown> & { initial: unknown },
@@ -188,6 +202,13 @@ class TaskGraphBuilder<
   }
 }
 
+/**
+ * Represents a task graph runner that executes tasks in a topologically sorted order.
+ * It assumes the passed tasks are already topologically sorted.
+ *
+ * @template TTaskDependencies - Type of the dependencies each task will receive
+ * @template TTaskContext - Type of the context each task will receive
+ */
 export class TaskGraphRunner<
   TTaskDependencies extends Record<string, unknown>,
   TTaskContext extends Record<string, unknown> & { initial: unknown },

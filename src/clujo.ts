@@ -35,6 +35,12 @@ import { type LockOptions, Mutex } from "redis-semaphore";
 import { Cron } from "./cron";
 import type { TaskGraphRunner } from "./task-graph";
 
+/**
+ * Represents a Clujo instance, which is a cron job that executes a task graph.
+ *
+ * @template TTaskDependencies - Type of the dependencies each task will receive
+ * @template TTaskContext - Type of the context each task will receive
+ */
 export class Clujo<
   TTaskDependencies extends Record<string, unknown>,
   TTaskContext extends Record<string, unknown> & {
@@ -62,7 +68,6 @@ export class Clujo<
     if (!cron.pattern) throw new Error("cron.pattern is required");
     this.id = id;
     this._taskGraphRunner = taskGraphRunner;
-    // TODO: validate pattern
     this._cron = new Cron(cron.pattern, cron.options);
   }
 

@@ -25,8 +25,6 @@
 
 import { promisify } from "node:util";
 
-const sleep = promisify(setTimeout);
-
 export type TaskOptions<
   TTaskId extends string,
   TTaskDependencies extends Record<string, unknown>,
@@ -42,6 +40,14 @@ export type TaskOptions<
   errorHandler?: (err: Error, input: TInput) => Promise<void> | void;
 };
 
+/**
+ * Represents a task that can be executed. A task takes a set of dependencies and a context as input,
+ * and returns a (potentially void) value when executed.
+ *
+ * @template TTaskDependencies - Type of task dependencies
+ * @template TTaskContext - Type of task context
+ * @template TTaskReturn - Type of task return value
+ */
 export class Task<
   TTaskDependencies extends Record<string, unknown>,
   TTaskContext extends Record<string, unknown> & { initial: unknown },
@@ -59,18 +65,44 @@ export class Task<
     }
   }
 
-  public addDependency(taskId: string) {
+  /**
+   * Adds a dependency to the task.
+   *
+   * @param taskId - The ID of the task to add as a dependency
+   */
+  public addDependency(taskId: string): void {
+    if (taskId === this.options.id) throw new Error("A task cannot depend on itself");
     this._dependencies.push(taskId);
   }
 
-  public get dependencies() {
+  /**
+   * Gets the list of task dependencies.
+   *
+   * @returns An array of task IDs representing the dependencies
+   */
+  public get dependencies(): string[] {
     return this._dependencies;
   }
 
-  public get id() {
+  /**
+   * Gets the ID of the task.
+   *
+   * @returns The task ID
+   */
+  public get id(): string {
     return this.options.id;
   }
 
+  /**
+   * Executes the task with the given dependencies and context, retrying if necessary
+   * up to the maximum number of retries specified in the retry policy. Each retry
+   * is separated by the retry delay (in ms) specified in the retry policy.
+   *
+   * @param {TTaskDependencies} deps - The task dependencies
+   * @param {TTaskContext} ctx - The task context
+   * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
+   * @throws {Error} If the task execution fails after all retry attempts
+   */
   public async run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn> {
     // we retry maxRetries times on top of the initial attempt
     for (let attempt = 0; attempt < this._retryPolicy.maxRetries + 1; attempt++) {
@@ -102,6 +134,11 @@ export class Task<
     throw new Error("Unexpected end of run method");
   }
 
+  /**
+   * Gets the status of the task.
+   *
+   * @returns The current status of the task
+   */
   public get status() {
     return this._status;
   }
@@ -117,9 +154,28 @@ export class Task<
   }
 }
 
-type TaskStatus = "pending" | "completed" | "failed" | "running";
+const sleep = promisify(setTimeout);
 
+/**
+ * Defines the retry policy for a task.
+ */
 type RetryPolicy = {
+  /**
+   * The maximum number of retry attempts.
+   */
   maxRetries: number;
+  /**
+   * The delay in milliseconds between retry attempts.
+   */
   retryDelayMs: number;
 };
+
+/**
+ * Represents the possible states of a task.
+ *
+ * - pending: Task is pending execution start
+ * - running: Task is executing
+ * - completed: Task has been executed successfully
+ * - failed: Task has failed to execute
+ */
+type TaskStatus = "pending" | "running" | "completed" | "failed";
