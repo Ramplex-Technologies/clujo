@@ -97,7 +97,7 @@ export class TaskGraph<
  * @template TTaskContext - Type of the context each task will receive
  * @template TAllDependencyIds - The task IDs that can be used as dependencies for new tasks
  */
-class TaskGraphBuilder<
+export class TaskGraphBuilder<
   TTaskDependencies extends Record<string, unknown>,
   TTaskContext extends Record<string, unknown> & { initial: unknown },
   TAllDependencyIds extends string = string & keyof Omit<TTaskContext, "initial">,

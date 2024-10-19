@@ -25,7 +25,8 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { TaskGraph } from "../src/task-graph";
+import { TaskGraph, type TaskGraphBuilder } from "../src/task-graph";
+import type { TaskOptions } from "../src/task";
 
 test("TaskGraph", async (t) => {
   await t.test("setContext with value", () => {
@@ -75,6 +76,67 @@ test("TaskGraphBuilder", async (t) => {
     const returnedBuilder = builder.addTask(task);
 
     assert.equal(returnedBuilder, builder);
+  });
+
+  await t.test("addTask with self dependency throws", async () => {
+    const builder = new TaskGraph().finalize() as unknown as TaskGraphBuilder<
+      Record<string, unknown>,
+      { initial: unknown },
+      "task1"
+    >;
+    const task: TaskOptions<"task1", Record<string, unknown>, { initial: unknown }, Promise<string>, "task1"> = {
+      id: "task1",
+      execute: () => Promise.resolve("result1"),
+      dependencies: ["task1"],
+    };
+
+    assert.throws(() => builder.addTask(task), /A task cannot depend on itself/);
+  });
+
+  await t.test("validate retry policy throws when maxRetries is invalid", async () => {
+    const builder = new TaskGraph().finalize();
+    const task = {
+      id: "task1",
+      execute: () => Promise.resolve("result1"),
+      retryPolicy: { maxRetries: -1, retryDelayMs: 100 },
+    };
+
+    assert.throws(() => builder.addTask(task), /maxRetries must be a non-negative integer/);
+  });
+
+  await t.test("validate retry policy throws when retryDelayMs is invalid", async () => {
+    const builder = new TaskGraph().finalize();
+    const task = {
+      id: "task1",
+      execute: () => Promise.resolve("result1"),
+      retryPolicy: { maxRetries: 1, retryDelayMs: -1 },
+    };
+
+    assert.throws(() => builder.addTask(task), /retryDelayMs must be a non-negative number/);
+  });
+
+  await t.test("Adding dependency id that is not a string throws", async () => {
+    const builder = new TaskGraph().finalize();
+    const task = {
+      id: "task1",
+      execute: () => Promise.resolve("result1"),
+      dependencies: [1],
+    };
+
+    // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+    assert.throws(() => builder.addTask(task as any), /Dependency ID must be a string/);
+  });
+
+  await t.test("addTask with dependency that does not exist throws", async () => {
+    const builder = new TaskGraph().finalize();
+    const task = {
+      id: "task1",
+      execute: () => Promise.resolve("result1"),
+      dependencies: ["task2"],
+    };
+
+    // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+    assert.throws(() => builder.addTask(task as any), /Dependency task2 not found for task task1/);
   });
 
   await t.test("addTask with dependencies", (t) => {
