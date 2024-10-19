@@ -36,7 +36,6 @@ var Context = class {
 
 // src/task.ts
 import { promisify } from "node:util";
-var sleep = promisify(setTimeout);
 var Task = class {
   constructor(options) {
     this.options = options;
@@ -48,15 +47,41 @@ var Task = class {
   _dependencies = [];
   _retryPolicy = { maxRetries: 0, retryDelayMs: 0 };
   _status = "pending";
+  /**
+   * Adds a dependency to the task.
+   *
+   * @param taskId - The ID of the task to add as a dependency
+   */
   addDependency(taskId) {
+    if (taskId === this.options.id) throw new Error("A task cannot depend on itself");
     this._dependencies.push(taskId);
   }
+  /**
+   * Gets the list of task dependencies.
+   *
+   * @returns An array of task IDs representing the dependencies
+   */
   get dependencies() {
     return this._dependencies;
   }
+  /**
+   * Gets the ID of the task.
+   *
+   * @returns The task ID
+   */
   get id() {
     return this.options.id;
   }
+  /**
+   * Executes the task with the given dependencies and context, retrying if necessary
+   * up to the maximum number of retries specified in the retry policy. Each retry
+   * is separated by the retry delay (in ms) specified in the retry policy.
+   *
+   * @param {TTaskDependencies} deps - The task dependencies
+   * @param {TTaskContext} ctx - The task context
+   * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
+   * @throws {Error} If the task execution fails after all retry attempts
+   */
   async run(deps, ctx) {
     for (let attempt = 0; attempt < this._retryPolicy.maxRetries + 1; attempt++) {
       try {
@@ -83,6 +108,11 @@ var Task = class {
     }
     throw new Error("Unexpected end of run method");
   }
+  /**
+   * Gets the status of the task.
+   *
+   * @returns The current status of the task
+   */
   get status() {
     return this._status;
   }
@@ -96,6 +126,7 @@ var Task = class {
     }
   }
 };
+var sleep = promisify(setTimeout);
 
 // src/task-graph.ts
 var TaskGraph = class {
@@ -241,8 +272,9 @@ var TaskGraphRunner = class {
    * @returns A promise that resolves to the completed context object when all tasks have completed.
    */
   async run() {
-    if (this._topologicalOrder.length === 0)
+    if (this._topologicalOrder.length === 0) {
       throw new Error("No tasks to run. Did you forget to call topologicalSort?");
+    }
     let value;
     if (this._contextValueOrFactory) {
       value = typeof this._contextValueOrFactory === "function" ? await this._contextValueOrFactory() : this._contextValueOrFactory;
@@ -251,7 +283,11 @@ var TaskGraphRunner = class {
     const completed = /* @__PURE__ */ new Set();
     const running = /* @__PURE__ */ new Map();
     const readyTasks = new Set(
-      this._topologicalOrder.filter((taskId) => this._tasks.get(taskId)?.dependencies.length === 0)
+      this._topologicalOrder.filter((taskId) => {
+        const task = this._tasks.get(taskId);
+        if (!task) throw new Error(`Task ${taskId} not found`);
+        return task.dependencies.length === 0;
+      })
     );
     const runTask = async (taskId) => {
       const task = this._tasks.get(taskId);
@@ -292,6 +328,7 @@ var TaskGraphRunner = class {
 };
 export {
   TaskGraph,
+  TaskGraphBuilder,
   TaskGraphRunner
 };
 //# sourceMappingURL=task-graph.mjs.map

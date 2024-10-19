@@ -4,7 +4,7 @@ declare class Cron {
     private readonly cronExpression;
     private readonly cronOptions?;
     private job;
-    constructor(cronExpression: string, cronOptions?: CronOptions | undefined);
+    constructor(cronExpression: string | Date, cronOptions?: CronOptions | undefined);
     /**
      * Starts the cron job with the specified handler.
      *

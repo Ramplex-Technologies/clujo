@@ -1,5 +1,11 @@
 import { TaskOptions, Task } from './task.js';
 
+/**
+ * Represents a task graph that can be built and executed.
+ *
+ * @template TTaskDependencies - Type of the dependencies each task will receive
+ * @template TTaskContext - Type of the context each task will receive
+ */
 declare class TaskGraph<TTaskDependencies extends Record<string, unknown> = Record<string, never>, TTaskContext extends Record<string, unknown> & {
     initial: unknown;
 } = {
@@ -37,6 +43,14 @@ declare class TaskGraph<TTaskDependencies extends Record<string, unknown> = Reco
      */
     setDependencies<TNewDependencies extends Record<string, unknown>>(value: TNewDependencies): TaskGraph<TNewDependencies, TTaskContext>;
 }
+/**
+ * Represents a task graph builder that can be used to add tasks to the graph.
+ * When built, the graph will be sorted topologically and returned as a `TaskGraphRunner` instance.
+ *
+ * @template TTaskDependencies - Type of the dependencies each task will receive
+ * @template TTaskContext - Type of the context each task will receive
+ * @template TAllDependencyIds - The task IDs that can be used as dependencies for new tasks
+ */
 declare class TaskGraphBuilder<TTaskDependencies extends Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
     initial: unknown;
 }, TAllDependencyIds extends string = string & keyof Omit<TTaskContext, "initial">> {
@@ -84,6 +98,13 @@ declare class TaskGraphBuilder<TTaskDependencies extends Record<string, unknown>
      */
     private _topologicalSort;
 }
+/**
+ * Represents a task graph runner that executes tasks in a topologically sorted order.
+ * It assumes the passed tasks are already topologically sorted.
+ *
+ * @template TTaskDependencies - Type of the dependencies each task will receive
+ * @template TTaskContext - Type of the context each task will receive
+ */
 declare class TaskGraphRunner<TTaskDependencies extends Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
     initial: unknown;
 }> {
@@ -92,7 +113,7 @@ declare class TaskGraphRunner<TTaskDependencies extends Record<string, unknown>,
     private readonly _topologicalOrder;
     private readonly _tasks;
     private readonly context;
-    constructor(_dependencies: TTaskDependencies, _contextValueOrFactory: undefined | TTaskContext | (() => TTaskContext | Promise<TTaskContext>), _topologicalOrder: string[], _tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>);
+    constructor(_dependencies: TTaskDependencies, _contextValueOrFactory: undefined | TTaskContext | (() => TTaskContext | Promise<TTaskContext>), _topologicalOrder: string[], _tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>);
     /**
      * Runs the tasks in the graph in topological order.
      * Tasks are run concurrently when possible.
@@ -103,4 +124,4 @@ declare class TaskGraphRunner<TTaskDependencies extends Record<string, unknown>,
     run(): Promise<TTaskContext>;
 }
 
-export { TaskGraph, TaskGraphRunner };
+export { TaskGraph, TaskGraphBuilder, TaskGraphRunner };

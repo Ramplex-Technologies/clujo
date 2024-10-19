@@ -47,19 +47,19 @@
     "build": "pnpm clean && tsup ./src",
     "dev": "tsup --watch",
     "lint": "biome check --write ./src",
-    "test": "node -r esbuild-register --test tests/*.test.ts"
+    "test": "node -r esbuild-register --test --experimental-test-module-mocks --experimental-test-coverage tests/*.test.ts"
   },
   "dependencies": {
     "croner": "^9.0.0",
-    "ioredis": "^5.4.1",
-    "redis-semaphore": "^5.6.1",
-    "rimraf": "^6.0.1"
+    "redis-semaphore": "^5.6.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^22.7.6",
     "esbuild": "^0.24.0",
     "esbuild-register": "^3.6.0",
+    "ioredis": "^5.4.1",
+    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "tsup": "^8.3.0",
     "typescript": "^5.6.3"

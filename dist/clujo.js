@@ -140,6 +140,28 @@ var Clujo = class {
   _cron;
   _taskGraphRunner;
   _hasStarted = false;
+  /**
+   *
+   * @param input The input to the Clujo constructor.
+   * @param input.id The unique identifier for the Clujo instance.
+   * @param input.taskGraphRunner The task graph runner to use for executing the task graph.
+   * @param input.cron The cron schedule for the Clujo instance.
+   * @param input.cron.pattern The cron pattern to use for scheduling the task graph. If a Date object is provided, the task graph will execute once at
+   *   the specified time.
+   * @param input.cron.options Optional options to use when creating the cron job.
+   *
+   * @throw An error if the Clujo ID, task graph runner, or cron pattern is not provided.
+   *
+   * @example
+   * const clujo = new Clujo({
+   *   id: 'my-clujo-instance',
+   *   taskGraphRunner: new TaskGraphRunner(...),
+   *   cron: {
+   *     pattern: '0 0 * * *', // Run daily at midnight
+   *     options: { timezone: 'America/New_York' }
+   *   }
+   * });
+   */
   constructor({
     id,
     taskGraphRunner,
