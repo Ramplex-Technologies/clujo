@@ -105,6 +105,9 @@ clujo.trigger().then((result) => {
 await clujo.stop(timeoutMs);
 ```
 
+In the event a Javascript `Date` object is provided instead of a cron pattern, the task graph
+will be executed precisely once at the specific date/time specified. Time is in ISO 8601 local time.
+
 # Advanced Usage
 
 ## Understanding Dependency Execution
