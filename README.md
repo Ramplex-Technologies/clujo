@@ -3,7 +3,7 @@
 Clujo is a flexible solution for managing scheduled tasks in your distributed Node.js applications. It would not be possible without the amazing work of the following projects:
 
 - [Croner](https://github.com/Hexagon/croner/tree/master?tab=readme-ov-file): used for running task graphs on a cron schedule
-- [ioredis](https://github.com/redis/ioredis) - (only used if an `ioredis` instance is provided to start method) used to ensure single execution in a distributed environment
+- [ioredis](https://github.com/redis/ioredis) - (not a dependency, but the supported redis client) used to ensure single execution in a distributed environment
 - [redis-semaphore](https://github.com/swarthy/redis-semaphore) (only used if an `ioredis` instance is provided to start method) - used to ensure single execution in a distributed environment
 
 Coming soon: `bun` and `deno` support.
