@@ -115,10 +115,10 @@ export class Clujo<
       onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
       runImmediately?: boolean;
     } = {
-      redis: undefined,
-      onTaskCompletion: undefined,
-      runImmediately: false,
-    },
+        redis: undefined,
+        onTaskCompletion: undefined,
+        runImmediately: false,
+      },
   ) {
     if (this._hasStarted) throw new Error("Cannot start a Clujo that has already started.");
     if (redis) if (!redis.client) throw new Error("Redis client is required.");
@@ -185,7 +185,7 @@ export class Clujo<
    *
    * @returns An AsyncDisposable lock if it was acquired, otherwise null.
    */
-  private async _tryAcquire(redis: Redis, lockOptions: LockOptions | undefined): Promise<ILock | null> {
+  private async _tryAcquire(redis: Redis, lockOptions: LockOptions | undefined): Promise<AsyncDisposableMutex | null> {
     const mutex = new Mutex(redis, this.id, lockOptions);
     const lock = await mutex.tryAcquire();
     if (!lock) return null;
@@ -202,6 +202,6 @@ export class Clujo<
   }
 }
 
-interface ILock extends AsyncDisposable {
+interface AsyncDisposableMutex extends AsyncDisposable {
   mutex: Mutex;
 }
