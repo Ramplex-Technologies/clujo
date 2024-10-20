@@ -101,7 +101,6 @@ var Cron = class {
    * @returns A promise that resolves when the job has been stopped
    */
   stop(timeout) {
-    if (!this.job) return Promise.resolve();
     return new Promise((resolve) => {
       const startTime = Date.now();
       const checkAndStop = () => {
