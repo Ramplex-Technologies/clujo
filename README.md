@@ -1,3 +1,23 @@
+# Table of Contents
+
+- [clujo](#clujo)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Advanced Usage](#advanced-usage)
+  - [Understanding Dependency Execution](#understanding-dependency-execution)
+    - [Context object](#context-object)
+    - [Task execution](#task-execution)
+  - [Setting Context and Dependencies](#setting-context-and-dependencies)
+  - [Using Redis for Distributed Locking](#using-redis-for-distributed-locking)
+  - [Running Tasks on Startup](#running-tasks-on-startup)
+  - [Error Handling](#error-handling)
+  - [Retry Policy](#retry-policy)
+- [Using the Scheduler](#using-the-scheduler)
+  - [Adding Jobs to the Scheduler](#adding-jobs-to-the-scheduler)
+  - [Starting All Jobs](#starting-all-jobs)
+  - [Stopping All Jobs](#stopping-all-jobs)
+
 # clujo
 
 Clujo is a flexible solution for managing scheduled tasks in your distributed Node.js applications. It would not be possible without the amazing work of the following projects:
