@@ -56,7 +56,6 @@ export class Cron {
    * @returns A promise that resolves when the job has been stopped
    */
   public stop(timeout: number): Promise<void> {
-    if (!this.job) return Promise.resolve();
     return new Promise<void>((resolve) => {
       const startTime = Date.now();
       const checkAndStop = () => {
