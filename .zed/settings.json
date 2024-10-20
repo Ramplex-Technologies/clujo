@@ -10,5 +10,6 @@
         "config_path": "biome.json"
       }
     }
-  }
+  },
+  "language_servers": ["biome"]
 }

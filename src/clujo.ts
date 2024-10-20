@@ -115,10 +115,10 @@ export class Clujo<
       onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
       runImmediately?: boolean;
     } = {
-        redis: undefined,
-        onTaskCompletion: undefined,
-        runImmediately: false,
-      },
+      redis: undefined,
+      onTaskCompletion: undefined,
+      runImmediately: false,
+    },
   ) {
     if (this._hasStarted) throw new Error("Cannot start a Clujo that has already started.");
     if (redis) if (!redis.client) throw new Error("Redis client is required.");
