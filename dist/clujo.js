@@ -85,7 +85,9 @@ var Cron = class {
    * @throws {Error} If attempting to start a job that has already been started.
    */
   start(handler) {
-    if (this.job) throw new Error("Attempting to start an already started job");
+    if (this.job) {
+      throw new Error("Attempting to start an already started job");
+    }
     this.job = new import_croner.Cron(this.cronExpression, this.cronOptions, handler);
   }
   /**
@@ -128,7 +130,9 @@ var Cron = class {
    * @throws {Error} If attempting to trigger a job that is not running.
    */
   async trigger() {
-    if (!this.job) throw new Error("Attempting to trigger a job that is not running");
+    if (!this.job) {
+      throw new Error("Attempting to trigger a job that is not running");
+    }
     await this.job.trigger();
   }
 };
@@ -166,9 +170,15 @@ var Clujo = class {
     taskGraphRunner,
     cron
   }) {
-    if (!id) throw new Error("Clujo ID is required.");
-    if (!taskGraphRunner) throw new Error("taskGraphRunner is required");
-    if (!cron.pattern) throw new Error("cron.pattern is required");
+    if (!id) {
+      throw new Error("Clujo ID is required.");
+    }
+    if (!taskGraphRunner) {
+      throw new Error("taskGraphRunner is required");
+    }
+    if (!cron.pattern) {
+      throw new Error("cron.pattern is required");
+    }
     this.id = id;
     this._taskGraphRunner = taskGraphRunner;
     this._cron = new Cron(cron.pattern, cron.options);
@@ -194,9 +204,11 @@ var Clujo = class {
     onTaskCompletion: void 0,
     runImmediately: false
   }) {
-    if (this._hasStarted) throw new Error("Cannot start a Clujo that has already started.");
-    if (redis) {
-      if (!redis.client) throw new Error("Redis client is required.");
+    if (this._hasStarted) {
+      throw new Error("Cannot start a Clujo that has already started.");
+    }
+    if (redis && !redis.client) {
+      throw new Error("Redis client is required.");
     }
     if (onTaskCompletion && typeof onTaskCompletion !== "function") {
       throw new Error("onTaskCompletion must be a function (sync or async).");
@@ -206,16 +218,21 @@ var Clujo = class {
     }
     const executeTasksAndCompletionHandler = async () => {
       const finalContext = await this._taskGraphRunner.run();
-      if (onTaskCompletion) await onTaskCompletion(finalContext);
+      if (onTaskCompletion) {
+        await onTaskCompletion(finalContext);
+      }
     };
     const handler = async () => {
       try {
-        if (!redis) await executeTasksAndCompletionHandler();
-        else {
+        if (!redis) {
+          await executeTasksAndCompletionHandler();
+        } else {
           var _stack = [];
           try {
             const lock = __using(_stack, await this._tryAcquire(redis.client, redis.lockOptions), true);
-            if (lock) await executeTasksAndCompletionHandler();
+            if (lock) {
+              await executeTasksAndCompletionHandler();
+            }
           } catch (_) {
             var _error = _, _hasError = true;
           } finally {
@@ -229,7 +246,9 @@ var Clujo = class {
     };
     this._cron.start(handler);
     this._hasStarted = true;
-    if (runImmediately) this._cron.trigger();
+    if (runImmediately) {
+      this._cron.trigger();
+    }
     return this;
   }
   /**
@@ -241,7 +260,9 @@ var Clujo = class {
    * @throws An error if the Clujo has not started.
    */
   async stop(timeout = 5e3) {
-    if (!this._hasStarted) throw new Error("Cannot stop a Clujo that has not started.");
+    if (!this._hasStarted) {
+      throw new Error("Cannot stop a Clujo that has not started.");
+    }
     await this._cron.stop(timeout);
   }
   /**
@@ -264,7 +285,9 @@ var Clujo = class {
   async _tryAcquire(redis, lockOptions) {
     const mutex = new import_redis_semaphore.Mutex(redis, this.id, lockOptions);
     const lock = await mutex.tryAcquire();
-    if (!lock) return null;
+    if (!lock) {
+      return null;
+    }
     return {
       mutex,
       [Symbol.asyncDispose]: async () => {

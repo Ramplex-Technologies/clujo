@@ -90,7 +90,9 @@ var Cron = class {
    * @throws {Error} If attempting to start a job that has already been started.
    */
   start(handler) {
-    if (this.job) throw new Error("Attempting to start an already started job");
+    if (this.job) {
+      throw new Error("Attempting to start an already started job");
+    }
     this.job = new import_croner.Cron(this.cronExpression, this.cronOptions, handler);
   }
   /**
@@ -133,7 +135,9 @@ var Cron = class {
    * @throws {Error} If attempting to trigger a job that is not running.
    */
   async trigger() {
-    if (!this.job) throw new Error("Attempting to trigger a job that is not running");
+    if (!this.job) {
+      throw new Error("Attempting to trigger a job that is not running");
+    }
     await this.job.trigger();
   }
 };
@@ -171,9 +175,15 @@ var Clujo = class {
     taskGraphRunner,
     cron
   }) {
-    if (!id) throw new Error("Clujo ID is required.");
-    if (!taskGraphRunner) throw new Error("taskGraphRunner is required");
-    if (!cron.pattern) throw new Error("cron.pattern is required");
+    if (!id) {
+      throw new Error("Clujo ID is required.");
+    }
+    if (!taskGraphRunner) {
+      throw new Error("taskGraphRunner is required");
+    }
+    if (!cron.pattern) {
+      throw new Error("cron.pattern is required");
+    }
     this.id = id;
     this._taskGraphRunner = taskGraphRunner;
     this._cron = new Cron(cron.pattern, cron.options);
@@ -199,9 +209,11 @@ var Clujo = class {
     onTaskCompletion: void 0,
     runImmediately: false
   }) {
-    if (this._hasStarted) throw new Error("Cannot start a Clujo that has already started.");
-    if (redis) {
-      if (!redis.client) throw new Error("Redis client is required.");
+    if (this._hasStarted) {
+      throw new Error("Cannot start a Clujo that has already started.");
+    }
+    if (redis && !redis.client) {
+      throw new Error("Redis client is required.");
     }
     if (onTaskCompletion && typeof onTaskCompletion !== "function") {
       throw new Error("onTaskCompletion must be a function (sync or async).");
@@ -211,16 +223,21 @@ var Clujo = class {
     }
     const executeTasksAndCompletionHandler = async () => {
       const finalContext = await this._taskGraphRunner.run();
-      if (onTaskCompletion) await onTaskCompletion(finalContext);
+      if (onTaskCompletion) {
+        await onTaskCompletion(finalContext);
+      }
     };
     const handler = async () => {
       try {
-        if (!redis) await executeTasksAndCompletionHandler();
-        else {
+        if (!redis) {
+          await executeTasksAndCompletionHandler();
+        } else {
           var _stack = [];
           try {
             const lock = __using(_stack, await this._tryAcquire(redis.client, redis.lockOptions), true);
-            if (lock) await executeTasksAndCompletionHandler();
+            if (lock) {
+              await executeTasksAndCompletionHandler();
+            }
           } catch (_) {
             var _error = _, _hasError = true;
           } finally {
@@ -234,7 +251,9 @@ var Clujo = class {
     };
     this._cron.start(handler);
     this._hasStarted = true;
-    if (runImmediately) this._cron.trigger();
+    if (runImmediately) {
+      this._cron.trigger();
+    }
     return this;
   }
   /**
@@ -246,7 +265,9 @@ var Clujo = class {
    * @throws An error if the Clujo has not started.
    */
   async stop(timeout = 5e3) {
-    if (!this._hasStarted) throw new Error("Cannot stop a Clujo that has not started.");
+    if (!this._hasStarted) {
+      throw new Error("Cannot stop a Clujo that has not started.");
+    }
     await this._cron.stop(timeout);
   }
   /**
@@ -269,7 +290,9 @@ var Clujo = class {
   async _tryAcquire(redis, lockOptions) {
     const mutex = new import_redis_semaphore.Mutex(redis, this.id, lockOptions);
     const lock = await mutex.tryAcquire();
-    if (!lock) return null;
+    if (!lock) {
+      return null;
+    }
     return {
       mutex,
       [Symbol.asyncDispose]: async () => {
@@ -382,7 +405,9 @@ var Task = class {
    * @param taskId - The ID of the task to add as a dependency
    */
   addDependency(taskId) {
-    if (taskId === this.options.id) throw new Error("A task cannot depend on itself");
+    if (taskId === this.options.id) {
+      throw new Error("A task cannot depend on itself");
+    }
     this._dependencies.push(taskId);
   }
   /**
@@ -423,8 +448,11 @@ var Task = class {
           console.error(`Task failed after ${attempt + 1} attempts: ${err}`);
           const error = err instanceof Error ? err : new Error(`Non error throw: ${String(err)}`);
           try {
-            if (this.options.errorHandler) await this.options.errorHandler(error, { deps, ctx });
-            else console.error(`Error in task ${this.options.id}: ${err}`);
+            if (this.options.errorHandler) {
+              await this.options.errorHandler(error, { deps, ctx });
+            } else {
+              console.error(`Error in task ${this.options.id}: ${err}`);
+            }
           } catch (error2) {
             console.error(`Error in task error handler for ${this.options.id}: ${error2}`);
           }
@@ -498,7 +526,9 @@ var TaskGraph = class {
    * @returns A TaskGraph instance with the new dependencies type.
    */
   setDependencies(value) {
-    if (typeof value !== "object" || value === null) throw new Error("Initial dependencies must be an object");
+    if (typeof value !== "object" || value === null) {
+      throw new Error("Initial dependencies must be an object");
+    }
     this._dependencies = value;
     return this;
   }
@@ -532,13 +562,19 @@ var TaskGraphBuilder = class {
    */
   addTask(options) {
     const taskId = options.id;
-    if (this._tasks.has(taskId)) throw new Error(`Task with id ${taskId} already exists`);
+    if (this._tasks.has(taskId)) {
+      throw new Error(`Task with id ${taskId} already exists`);
+    }
     const task = new Task(options);
     this._tasks.set(taskId, task);
     for (const depId of options.dependencies ?? []) {
-      if (typeof depId !== "string") throw new Error("Dependency ID must be a string");
+      if (typeof depId !== "string") {
+        throw new Error("Dependency ID must be a string");
+      }
       const dependentTask = this._tasks.get(depId);
-      if (!dependentTask) throw new Error(`Dependency ${depId} not found for task ${taskId}`);
+      if (!dependentTask) {
+        throw new Error(`Dependency ${depId} not found for task ${taskId}`);
+      }
       task.addDependency(depId);
     }
     return this;
@@ -552,7 +588,9 @@ var TaskGraphBuilder = class {
    * @throws {Error} If no tasks have been added to the graph.
    */
   build() {
-    if (!this.size) throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
+    if (!this.size) {
+      throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
+    }
     this._topologicalSort();
     return new TaskGraphRunner(this._dependencies, this._contextValueOrFactory, this._topologicalOrder, this._tasks);
   }
@@ -569,18 +607,28 @@ var TaskGraphBuilder = class {
     const visited = /* @__PURE__ */ new Set();
     const temp = /* @__PURE__ */ new Set();
     const visit = (taskId) => {
-      if (temp.has(taskId)) throw new Error(`Circular dependency detected involving task ${taskId}`);
+      if (temp.has(taskId)) {
+        throw new Error(`Circular dependency detected involving task ${taskId}`);
+      }
       if (!visited.has(taskId)) {
         temp.add(taskId);
         const task = this._tasks.get(taskId);
-        if (!task) throw new Error(`Task ${taskId} not found`);
-        for (const depId of task.dependencies) visit(depId);
+        if (!task) {
+          throw new Error(`Task ${taskId} not found`);
+        }
+        for (const depId of task.dependencies) {
+          visit(depId);
+        }
         temp.delete(taskId);
         visited.add(taskId);
         this._topologicalOrder.push(taskId);
       }
     };
-    for (const taskId of this._tasks.keys()) if (!visited.has(taskId)) visit(taskId);
+    for (const taskId of this._tasks.keys()) {
+      if (!visited.has(taskId)) {
+        visit(taskId);
+      }
+    }
     visited.clear();
     temp.clear();
   }
@@ -614,13 +662,17 @@ var TaskGraphRunner = class {
     const readyTasks = new Set(
       this._topologicalOrder.filter((taskId) => {
         const task = this._tasks.get(taskId);
-        if (!task) throw new Error(`Task ${taskId} not found`);
+        if (!task) {
+          throw new Error(`Task ${taskId} not found`);
+        }
         return task.dependencies.length === 0;
       })
     );
     const runTask = async (taskId) => {
       const task = this._tasks.get(taskId);
-      if (!task) throw new Error(`Task ${taskId} not found`);
+      if (!task) {
+        throw new Error(`Task ${taskId} not found`);
+      }
       try {
         const result = await task.run(this._dependencies, this.context.value);
         await this.context.update({ [taskId]: result });
@@ -635,7 +687,9 @@ var TaskGraphRunner = class {
               const depTask = this._tasks.get(depId);
               return depTask && completed.has(depId) && depTask.status === "completed";
             });
-            if (canRun) readyTasks.add(id);
+            if (canRun) {
+              readyTasks.add(id);
+            }
           }
         }
       }

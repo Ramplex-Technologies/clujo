@@ -13,7 +13,9 @@ var Cron = class {
    * @throws {Error} If attempting to start a job that has already been started.
    */
   start(handler) {
-    if (this.job) throw new Error("Attempting to start an already started job");
+    if (this.job) {
+      throw new Error("Attempting to start an already started job");
+    }
     this.job = new Croner(this.cronExpression, this.cronOptions, handler);
   }
   /**
@@ -56,7 +58,9 @@ var Cron = class {
    * @throws {Error} If attempting to trigger a job that is not running.
    */
   async trigger() {
-    if (!this.job) throw new Error("Attempting to trigger a job that is not running");
+    if (!this.job) {
+      throw new Error("Attempting to trigger a job that is not running");
+    }
     await this.job.trigger();
   }
 };
