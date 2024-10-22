@@ -44,7 +44,9 @@ export class Cron {
    * @throws {Error} If attempting to start a job that has already been started.
    */
   public start(handler: () => Promise<void> | void): void {
-    if (this.job) throw new Error("Attempting to start an already started job");
+    if (this.job) {
+      throw new Error("Attempting to start an already started job");
+    }
     this.job = new Croner(this.cronExpression, this.cronOptions, handler);
   }
 
@@ -91,7 +93,9 @@ export class Cron {
    * @throws {Error} If attempting to trigger a job that is not running.
    */
   public async trigger(): Promise<void> {
-    if (!this.job) throw new Error("Attempting to trigger a job that is not running");
+    if (!this.job) {
+      throw new Error("Attempting to trigger a job that is not running");
+    }
     await this.job.trigger();
   }
 }

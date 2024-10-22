@@ -112,7 +112,9 @@ export class Task<
    * @param taskId - The ID of the task to add as a dependency
    */
   public addDependency(taskId: string): void {
-    if (taskId === this.options.id) throw new Error("A task cannot depend on itself");
+    if (taskId === this.options.id) {
+      throw new Error("A task cannot depend on itself");
+    }
     this._dependencies.push(taskId);
   }
 
@@ -157,8 +159,11 @@ export class Task<
           console.error(`Task failed after ${attempt + 1} attempts: ${err}`);
           const error = err instanceof Error ? err : new Error(`Non error throw: ${String(err)}`);
           try {
-            if (this.options.errorHandler) await this.options.errorHandler(error, { deps, ctx });
-            else console.error(`Error in task ${this.options.id}: ${err}`);
+            if (this.options.errorHandler) {
+              await this.options.errorHandler(error, { deps, ctx });
+            } else {
+              console.error(`Error in task ${this.options.id}: ${err}`);
+            }
           } catch (error) {
             console.error(`Error in task error handler for ${this.options.id}: ${error}`);
           }

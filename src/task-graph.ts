@@ -81,7 +81,9 @@ export class TaskGraph<
    * @returns A TaskGraph instance with the new dependencies type.
    */
   public setDependencies<TNewDependencies extends Record<string, unknown>>(value: TNewDependencies) {
-    if (typeof value !== "object" || value === null) throw new Error("Initial dependencies must be an object");
+    if (typeof value !== "object" || value === null) {
+      throw new Error("Initial dependencies must be an object");
+    }
     // set the dependencies object to the provided value
     this._dependencies = value as unknown as TTaskDependencies;
     // return the builder with the new dependencies type
@@ -134,14 +136,20 @@ export class TaskGraphBuilder<
     options: TaskOptions<TTaskId, TTaskDependencies, TTaskContext, TTaskReturn, TTaskDependencyIds>,
   ) {
     const taskId = options.id;
-    if (this._tasks.has(taskId)) throw new Error(`Task with id ${taskId} already exists`);
+    if (this._tasks.has(taskId)) {
+      throw new Error(`Task with id ${taskId} already exists`);
+    }
     const task = new Task<TTaskDependencies, TTaskContext, TTaskReturn>(options);
     this._tasks.set(taskId, task);
 
     for (const depId of options.dependencies ?? []) {
-      if (typeof depId !== "string") throw new Error("Dependency ID must be a string");
+      if (typeof depId !== "string") {
+        throw new Error("Dependency ID must be a string");
+      }
       const dependentTask = this._tasks.get(depId);
-      if (!dependentTask) throw new Error(`Dependency ${depId} not found for task ${taskId}`);
+      if (!dependentTask) {
+        throw new Error(`Dependency ${depId} not found for task ${taskId}`);
+      }
       task.addDependency(depId);
     }
 
@@ -164,7 +172,9 @@ export class TaskGraphBuilder<
    * @throws {Error} If no tasks have been added to the graph.
    */
   public build() {
-    if (!this.size) throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
+    if (!this.size) {
+      throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
+    }
     this._topologicalSort();
     return new TaskGraphRunner(this._dependencies, this._contextValueOrFactory, this._topologicalOrder, this._tasks);
   }
@@ -184,19 +194,29 @@ export class TaskGraphBuilder<
     const temp = new Set<string>();
 
     const visit = (taskId: string) => {
-      if (temp.has(taskId)) throw new Error(`Circular dependency detected involving task ${taskId}`);
+      if (temp.has(taskId)) {
+        throw new Error(`Circular dependency detected involving task ${taskId}`);
+      }
       if (!visited.has(taskId)) {
         temp.add(taskId);
         const task = this._tasks.get(taskId);
-        if (!task) throw new Error(`Task ${taskId} not found`);
-        for (const depId of task.dependencies) visit(depId);
+        if (!task) {
+          throw new Error(`Task ${taskId} not found`);
+        }
+        for (const depId of task.dependencies) {
+          visit(depId);
+        }
         temp.delete(taskId);
         visited.add(taskId);
         this._topologicalOrder.push(taskId);
       }
     };
 
-    for (const taskId of this._tasks.keys()) if (!visited.has(taskId)) visit(taskId);
+    for (const taskId of this._tasks.keys()) {
+      if (!visited.has(taskId)) {
+        visit(taskId);
+      }
+    }
     visited.clear();
     temp.clear();
   }
@@ -248,14 +268,18 @@ export class TaskGraphRunner<
     const readyTasks = new Set<string>(
       this._topologicalOrder.filter((taskId) => {
         const task = this._tasks.get(taskId);
-        if (!task) throw new Error(`Task ${taskId} not found`);
+        if (!task) {
+          throw new Error(`Task ${taskId} not found`);
+        }
         return task.dependencies.length === 0;
       }),
     );
 
     const runTask = async (taskId: string) => {
       const task = this._tasks.get(taskId);
-      if (!task) throw new Error(`Task ${taskId} not found`);
+      if (!task) {
+        throw new Error(`Task ${taskId} not found`);
+      }
 
       try {
         const result = await task.run(this._dependencies, this.context.value);
@@ -274,7 +298,9 @@ export class TaskGraphRunner<
               const depTask = this._tasks.get(depId);
               return depTask && completed.has(depId) && depTask.status === "completed";
             });
-            if (canRun) readyTasks.add(id);
+            if (canRun) {
+              readyTasks.add(id);
+            }
           }
         }
       }

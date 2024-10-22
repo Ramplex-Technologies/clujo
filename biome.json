@@ -11,6 +11,10 @@
         "noUnusedTemplateLiteral": {
           "level": "warn",
           "fix": "safe"
+        },
+        "useBlockStatements": {
+          "level": "error",
+          "fix": "safe"
         }
       }
     }
