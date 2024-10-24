@@ -47,6 +47,7 @@
     "clean": "rimraf dist",
     "build": "pnpm clean && tsup",
     "dev": "tsup --watch",
+    "format": "biome format --write ./src",
     "lint": "biome check --write ./src",
     "test": "node -r esbuild-register --test --experimental-test-module-mocks --experimental-test-coverage src/**/*.test.ts",
     "prepare": "husky"
