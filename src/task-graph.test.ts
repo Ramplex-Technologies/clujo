@@ -25,8 +25,8 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { TaskGraph, TaskGraphRunner, type TaskGraphBuilder } from "../src/task-graph";
 import type { TaskOptions } from "../src/_task";
+import { TaskGraph, type TaskGraphBuilder, TaskGraphRunner } from "../src/task-graph";
 
 test("TaskGraph", async (t) => {
   await t.test("setContext with value", () => {
@@ -293,7 +293,9 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
         id: "asyncTask1",
         dependencies: ["syncTask1"],
         execute: async ({ ctx }) => {
-          if (!ctx.syncTask1) throw new Error("syncTask1 not found in context");
+          if (!ctx.syncTask1) {
+            throw new Error("syncTask1 not found in context");
+          }
           executionOrder.push("asyncTask1");
           await new Promise((resolve) => setTimeout(resolve, 50));
           return ctx.syncTask1 + 5;
@@ -303,7 +305,9 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
         id: "syncTask2",
         dependencies: ["syncTask1"],
         execute: ({ ctx }) => {
-          if (!ctx.syncTask1) throw new Error("syncTask1 not found in context");
+          if (!ctx.syncTask1) {
+            throw new Error("syncTask1 not found in context");
+          }
           executionOrder.push("syncTask2");
           return ctx.syncTask1 * 3;
         },
@@ -312,7 +316,9 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
         id: "asyncTask2",
         dependencies: ["asyncTask1", "syncTask2"],
         execute: async ({ ctx }) => {
-          if (!ctx.asyncTask1 || !ctx.syncTask2) throw new Error("asyncTask1 or syncTask2 not found in context");
+          if (!ctx.asyncTask1 || !ctx.syncTask2) {
+            throw new Error("asyncTask1 or syncTask2 not found in context");
+          }
           executionOrder.push("asyncTask2");
           await new Promise((resolve) => setTimeout(resolve, 30));
           return ctx.asyncTask1 + ctx.syncTask2;

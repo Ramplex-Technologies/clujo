@@ -45,10 +45,11 @@
   },
   "scripts": {
     "clean": "rimraf dist",
-    "build": "pnpm clean && tsup ./src",
+    "build": "pnpm clean && tsup",
     "dev": "tsup --watch",
     "lint": "biome check --write ./src",
-    "test": "node -r esbuild-register --test --experimental-test-module-mocks --experimental-test-coverage tests/*.test.ts"
+    "test": "node -r esbuild-register --test --experimental-test-module-mocks --experimental-test-coverage src/**/*.test.ts",
+    "prepare": "husky"
   },
   "dependencies": {
     "croner": "^9.0.0",
@@ -59,6 +60,7 @@
     "@types/node": "^22.7.7",
     "esbuild": "^0.24.0",
     "esbuild-register": "^3.6.0",
+    "husky": "^9.1.6",
     "ioredis": "^5.4.1",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
