@@ -17,6 +17,8 @@
   - [Adding Jobs to the Scheduler](#adding-jobs-to-the-scheduler)
   - [Starting All Jobs](#starting-all-jobs)
   - [Stopping All Jobs](#stopping-all-jobs)
+- [Contributing](#contributing)
+- [License](#license)
 
 # clujo
 
@@ -278,3 +280,11 @@ await scheduler.stop();
 // Or, specify a custom timeout in milliseconds
 await scheduler.stop(10000);
 ```
+
+# Contributing
+
+Contributions are welcome! Please describe the contribution in an issue before submitting a pull request. Attach the issue number to the pull request description and include tests for new features / bug fixes.
+
+# License
+
+Clujo is [MIT](LICENSE) licensed.
