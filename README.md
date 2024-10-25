@@ -277,7 +277,7 @@ The Scheduler class provides a convenient way to manage multiple Clujo jobs toge
 ## Adding Jobs to the Scheduler
 
 ```typescript
-import { Scheduler } from 'clujo';
+import { Scheduler } from '@ramplex/clujo';
 import { Redis } from 'ioredis';
 
 const scheduler = new Scheduler();
