@@ -13,4 +13,4 @@ node_modules/
 *.tgz
 
 # Build files
- dist/
+dist/
