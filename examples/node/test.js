@@ -55,7 +55,7 @@ const clujo = new Clujo({
     id: "test",
     cron: {
         // every 10 seconds cron pattern
-        pattern: "*/5 * * * * *",
+        pattern: "*/10 * * * * *",
     },
     taskGraphRunner: tasks,
 });

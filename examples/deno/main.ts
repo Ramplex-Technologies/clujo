@@ -3,11 +3,11 @@ import { Clujo, TaskGraph } from "@ramplex/clujo";
 // Learn more at https://docs.deno.com/runtime/manual/examples/module_metadata#concepts
 if (import.meta.main) {
     const tasks = new TaskGraph({
-        contextFactory: () => 10
+        contextFactory: () => 10,
     })
         .addTask({
             id: "task1",
-            execute: async ({ deps, ctx }) => {
+            execute: ({ deps, ctx }) => {
                 console.debug("Task 1 executing");
                 console.debug("Task 1", deps, ctx);
                 console.debug("Task 1 executed");
@@ -17,7 +17,7 @@ if (import.meta.main) {
         })
         .addTask({
             id: "task2",
-            execute: async ({ deps, ctx }) => {
+            execute: ({ deps, ctx }) => {
                 console.debug("Task 2 executing");
                 console.log("Task 2", deps, ctx);
                 console.debug("Task 2 executed");
@@ -27,7 +27,7 @@ if (import.meta.main) {
         })
         .addTask({
             id: "task3",
-            execute: async ({ deps, ctx }) => {
+            execute: ({ deps, ctx }) => {
                 console.debug("Task 3 executing");
                 console.log("Task 3", deps, ctx);
                 console.debug("Task 3 executed");
@@ -51,7 +51,7 @@ if (import.meta.main) {
         id: "test",
         cron: {
             // every 10 seconds cron pattern
-            pattern: "*/5 * * * * *",
+            pattern: "*/10 * * * * *",
         },
         taskGraphRunner: tasks,
     });
@@ -63,5 +63,4 @@ if (import.meta.main) {
 
     // start cron
     clujo.start();
-
 }
