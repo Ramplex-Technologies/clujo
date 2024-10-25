@@ -70,19 +70,26 @@ Here's a simple example to get you started with Clujo:
 import { TaskGraph, Clujo } from 'clujo';
 
 // Define your tasks
-const tasks = new TaskGraph()
-  .finalize()
+const tasks = new TaskGraph({
+  // Optional: provide initial context value
+  contextValue: { initialData: "some value" },
+  // Optional: provide dependencies available to all tasks
+  dependencies: { logger: console }
+})
   .addTask({
     id: "task1",
     execute: async ({ deps, ctx }) => {
-      console.log("Task 1 executing");
+      deps.logger.log("Task 1 executing");
+      deps.logger.log("Initial data:", ctx.initial.initialData);
       return "Task 1 result";
     },
   })
   .addTask({
     id: "task2",
     execute: async ({ deps, ctx }) => {
-      console.log("Task 2 executing");
+      deps.logger.log("Task 2 executing");
+      // since task2 depends on task1, it will have access to the result of task1
+      deps.logger.log("Task 1 result:", ctx.task1);
       return "Task 2 result";
     },
     // will only execute after task 1 completes
@@ -91,7 +98,7 @@ const tasks = new TaskGraph()
   .addTask({
     id: "task3",
     execute: async ({ deps, ctx }) => {
-      console.log("Task 3 executing");
+      deps.logger.log("Task 3 executing");
       return "Task 3 result";
     },
     // since task3 has no dependencies, it will run in parallel with task1 at the start of execution
@@ -118,9 +125,7 @@ clujo.start({
 });
 
 // Trigger the job manually to get a complete context object
-clujo.trigger().then((result) => {
-  console.log(result);
-});
+const completedContext = await clujo.trigger();
 
 // Gracefully stop the job by waiting until the current execution completes
 // Will force stop after timeout milliseconds
@@ -157,16 +162,40 @@ Can build up more complex cases from these simple cases
 ## Setting Context and Dependencies
 
 ```typescript
-const tasks = new TaskGraph()
-  .setContext(async () => {
+// Using a static context value
+const tasks = new TaskGraph({
+  contextValue: { users: [], config: {} },
+  dependencies: { logger: console }
+})
+  .addTask({
+    id: "task1",
+    execute: ({ deps, ctx }) => {
+      deps.logger.log(ctx.initial.users);
+      return "result";
+    }
+  })
+  .build();
+
+// Using an (sync or async) context factory
+const tasks = new TaskGraph({
+  contextFactory: async (deps) => {
     const users = await fetchUsers();
     return { users };
+  },
+  dependencies: { logger: console }
+})
+  .addTask({
+    id: "task1",
+    execute: ({ deps, ctx }) => {
+      deps.logger.log(ctx.initial.users);
+      return "result";
+    }
   })
-  .setDependencies({ logger: console })
-  .finalize()
-  // ... add tasks
   .build();
 ```
+
+The context and dependencies are type-safe, ensuring you can only access properties that actually exist.
+Tasks can access their dependencies' results through the context object, and all tasks have access to the initial context under `ctx.initial`.
 
 ## Using Redis for Distributed Locking
 
