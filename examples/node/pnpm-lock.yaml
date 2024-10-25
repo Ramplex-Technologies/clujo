@@ -8,17 +8,17 @@ importers:
 
   .:
     dependencies:
-      clujo:
-        specifier: ^2.0.0
-        version: 2.0.0(ioredis@5.4.1)
+      '@ramplex/clujo':
+        specifier: ^2.0.3
+        version: 2.0.3(ioredis@5.4.1)
 
 packages:
 
   '@ioredis/commands@1.2.0':
     resolution: {integrity: sha512-Sx1pU8EM64o2BrqNpEO1CNLtKQwyhuXuqyfH7oGKCk+1a33d2r5saW8zNwm3j6BTExtjrv2BxTgzzkMwts6vGg==}
 
-  clujo@2.0.0:
-    resolution: {integrity: sha512-Cj98bGFJiIpVlVtA60q6KSTw0Wc1se6pzO1no3Blbork3waTAZio9o9put0zIx0B3OmWzCCycZIXZB4+fXxJlw==}
+  '@ramplex/clujo@2.0.3':
+    resolution: {integrity: sha512-x3u0yFnlDSVTSR8IK/XQbwvRhjIsdDZa4FwSzxe9o9LoDJNKp3SnRUok7AnRp7P4tRRbnr35bwRX+a19U59EyQ==}
 
   cluster-key-slot@1.1.2:
     resolution: {integrity: sha512-RMr0FhtfXemyinomL4hrWcYJxmX6deFdCxpJzhDttxgO1+bcCnkk+9drydLVDmAMG7NE6aN/fl4F7ucU/90gAA==}
@@ -79,7 +79,7 @@ snapshots:
   '@ioredis/commands@1.2.0':
     optional: true
 
-  clujo@2.0.0(ioredis@5.4.1):
+  '@ramplex/clujo@2.0.3(ioredis@5.4.1)':
     dependencies:
       croner: 9.0.0
       redis-semaphore: 5.6.1(ioredis@5.4.1)

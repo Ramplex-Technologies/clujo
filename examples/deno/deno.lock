@@ -1,13 +1,13 @@
 {
   "version": "4",
   "specifiers": {
-    "jsr:@ramplex/clujo@^2.0.1": "2.0.1",
+    "jsr:@ramplex/clujo@^2.0.3": "2.0.3",
     "npm:croner@9": "9.0.0",
     "npm:redis-semaphore@^5.6.1": "5.6.1"
   },
   "jsr": {
-    "@ramplex/clujo@2.0.1": {
-      "integrity": "cd83af2d10e6fc41c30c047dbcc8ebef9cd17a93445a7273b8c5974203a43fc9",
+    "@ramplex/clujo@2.0.3": {
+      "integrity": "8280e18c195db58e108c11f197bab94e7400a54a58d33fd7ecca94f6e846c4af",
       "dependencies": [
         "npm:croner",
         "npm:redis-semaphore"
@@ -36,7 +36,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@ramplex/clujo@^2.0.1"
+      "jsr:@ramplex/clujo@^2.0.3"
     ]
   }
 }

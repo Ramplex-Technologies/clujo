@@ -1,5 +1,5 @@
 const util = require("node:util");
-const { TaskGraph, Clujo } = require("clujo");
+const { TaskGraph, Clujo } = require("@ramplex/clujo");
 
 const sleep = util.promisify(setTimeout);
 
