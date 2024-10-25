@@ -70,7 +70,6 @@ deno add jsr:@ramplex/clujo
 npx jsr add @ramplex/clujo
 yarn dlx jsr add @ramplex/clujo
 pnpm dlx jsr add @ramplex/clujo
-bunx jsr add @ramplex/clujo
 ```
 
 # Quick Start
