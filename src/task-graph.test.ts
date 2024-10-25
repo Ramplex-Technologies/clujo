@@ -26,76 +26,62 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { TaskOptions } from "../src/_task";
-import { TaskGraph, type TaskGraphBuilder, TaskGraphRunner } from "../src/task-graph";
+import { TaskGraph, TaskGraphRunner } from "../src/task-graph";
 
 test("TaskGraph", async (t) => {
-    await t.test("setContext with value", () => {
-        const taskGraph = new TaskGraph();
+    await t.test("constructor validates dependencies input", async (t) => {
+        await t.test("throws when dependencies is null", () => {
+            // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+            assert.throws(() => new TaskGraph({ dependencies: null as any }), /Dependencies must be a non-null object/);
+        });
 
-        const initialContext = { foo: "bar" };
-        const result = taskGraph.setContext(initialContext);
+        await t.test("throws when dependencies is not an object", () => {
+            // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+            assert.throws(() => new TaskGraph({ dependencies: 42 as any }), /Dependencies must be a non-null object/);
 
-        assert.equal(result, taskGraph);
+            assert.throws(
+                // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+                () => new TaskGraph({ dependencies: "string" as any }),
+                /Dependencies must be a non-null object/,
+            );
+
+            // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+            assert.throws(() => new TaskGraph({ dependencies: true as any }), /Dependencies must be a non-null object/);
+        });
+
+        await t.test("accepts valid dependencies object", () => {
+            assert.doesNotThrow(
+                () =>
+                    new TaskGraph({
+                        dependencies: { key: "value" },
+                    }),
+            );
+
+            assert.doesNotThrow(
+                () =>
+                    new TaskGraph({
+                        dependencies: Object.create(null),
+                    }),
+            );
+        });
     });
 
-    await t.test("setContext with factory function", () => {
-        const taskGraph = new TaskGraph();
-
-        const contextFactory = () => ({ foo: "bar" });
-        const result = taskGraph.setContext(contextFactory);
-
-        assert.equal(result, taskGraph);
-    });
-
-    await t.test("setDependencies", () => {
-        const taskGraph = new TaskGraph();
-
-        const dependencies = { dep1: "value1", dep2: "value2" };
-        const result = taskGraph.setDependencies(dependencies);
-
-        assert.equal(result, taskGraph);
-    });
-
-    await t.test("setDependencies with non object", () => {
-        const taskGraph = new TaskGraph();
-
-        // biome-ignore lint/suspicious/noExplicitAny: fake the input
-        assert.throws(() => taskGraph.setDependencies("invalid" as any), /Initial dependencies must be an object/);
-    });
-
-    await t.test("setDependencies with non object values", () => {
-        const taskGraph = new TaskGraph();
-
-        // biome-ignore lint/suspicious/noExplicitAny: fake the input
-        assert.throws(() => taskGraph.setDependencies(null as any), /Initial dependencies must be an object/);
-    });
-
-    await t.test("finalize returns TaskGraphBuilder", () => {
-        const taskGraph = new TaskGraph();
-
-        const builder = taskGraph.finalize();
-
-        assert.ok(typeof builder.addTask === "function");
-        assert.ok(typeof builder.build === "function");
-    });
-});
-
-test("TaskGraphBuilder", async (t) => {
     await t.test("addTask with no context or dependencies", async () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
             execute: () => Promise.resolve("result1"),
         };
-        const returnedBuilder = builder.addTask(task);
+        const returnedBuilder = taskGraph.addTask(task);
 
-        assert.equal(returnedBuilder, builder);
+        assert.equal(returnedBuilder, taskGraph);
     });
 
     await t.test("addTask with self dependency throws", async () => {
-        const builder = new TaskGraph().finalize() as unknown as TaskGraphBuilder<
+        const taskGraph = new TaskGraph() as unknown as TaskGraph<
             Record<string, unknown>,
-            { initial: unknown },
+            unknown,
+            { initial: unknown; task1: unknown },
             "task1"
         >;
         const task: TaskOptions<"task1", Record<string, unknown>, { initial: unknown }, Promise<string>, "task1"> = {
@@ -104,33 +90,33 @@ test("TaskGraphBuilder", async (t) => {
             dependencies: ["task1"],
         };
 
-        assert.throws(() => builder.addTask(task), /A task cannot depend on itself/);
+        assert.throws(() => taskGraph.addTask(task), /A task cannot depend on itself/);
     });
 
     await t.test("validate retry policy throws when maxRetries is invalid", async () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
             execute: () => Promise.resolve("result1"),
             retryPolicy: { maxRetries: -1, retryDelayMs: 100 },
         };
 
-        assert.throws(() => builder.addTask(task), /maxRetries must be a non-negative integer/);
+        assert.throws(() => taskGraph.addTask(task), /maxRetries must be a non-negative integer/);
     });
 
     await t.test("validate retry policy throws when retryDelayMs is invalid", async () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
             execute: () => Promise.resolve("result1"),
             retryPolicy: { maxRetries: 1, retryDelayMs: -1 },
         };
 
-        assert.throws(() => builder.addTask(task), /retryDelayMs must be a non-negative number/);
+        assert.throws(() => taskGraph.addTask(task), /retryDelayMs must be a non-negative number/);
     });
 
     await t.test("Adding dependency id that is not a string throws", async () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
             execute: () => Promise.resolve("result1"),
@@ -138,23 +124,23 @@ test("TaskGraphBuilder", async (t) => {
         };
 
         // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-        assert.throws(() => builder.addTask(task as any), /Dependency ID must be a string/);
+        assert.throws(() => taskGraph.addTask(task as any), /Dependency ID must be a string/);
     });
 
     await t.test("addTask with existing task id throws", async () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
             execute: () => Promise.resolve("result1"),
         };
 
-        builder.addTask(task);
+        taskGraph.addTask(task);
 
-        assert.throws(() => builder.addTask(task), /Task with id task1 already exists/);
+        assert.throws(() => taskGraph.addTask(task), /Task with id task1 already exists/);
     });
 
     await t.test("addTask with dependency that does not exist throws", async () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
             execute: () => Promise.resolve("result1"),
@@ -162,13 +148,13 @@ test("TaskGraphBuilder", async (t) => {
         };
 
         // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-        assert.throws(() => builder.addTask(task as any), /Dependency task2 not found for task task1/);
+        assert.throws(() => taskGraph.addTask(task as any), /Dependency task2 not found for task task1/);
     });
 
     await t.test("addTask with dependencies", (t) => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
 
-        const returnedBuilder = builder
+        const returnedBuilder = taskGraph
             .addTask({
                 id: "task1",
                 execute: () => Promise.resolve("result1"),
@@ -179,42 +165,42 @@ test("TaskGraphBuilder", async (t) => {
                 execute: () => Promise.resolve("result2"),
             });
 
-        assert.equal(returnedBuilder, builder);
+        assert.equal(returnedBuilder, taskGraph);
     });
 
     await t.test("build returns TaskGraphRunner", () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
 
-        builder.addTask({
+        taskGraph.addTask({
             id: "task1",
             execute: () => Promise.resolve("result1"),
         });
-        const runner = builder.build();
+        const runner = taskGraph.build();
 
         assert.ok(typeof runner.run === "function");
     });
 
     await t.test("build throws error when no tasks added", () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
 
-        assert.throws(() => builder.build(), /No tasks added to the graph/);
+        assert.throws(() => taskGraph.build(), /No tasks added to the graph/);
     });
 });
 
 test("TaskGraphRunner", async (t) => {
     await t.test("run executes tasks in correct order", async () => {
         // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-        let builder: any = new TaskGraph().finalize();
+        let taskGraph: any = new TaskGraph();
         const executionOrder: string[] = [];
 
-        builder = builder.addTask({
+        taskGraph = taskGraph.addTask({
             id: "task1",
             execute: () => {
                 executionOrder.push("task1");
                 return "result1";
             },
         });
-        builder = builder.addTask({
+        taskGraph = taskGraph.addTask({
             id: "task2",
             dependencies: ["task1"],
             execute: () => {
@@ -223,7 +209,7 @@ test("TaskGraphRunner", async (t) => {
             },
         });
 
-        const runner = builder.build();
+        const runner = taskGraph.build();
         const result = await runner.run();
 
         assert.deepEqual(executionOrder, ["task1", "task2"]);
@@ -235,18 +221,18 @@ test("TaskGraphRunner", async (t) => {
     });
 
     await t.test("run handles task failures", async () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
 
-        builder.addTask({
+        taskGraph.addTask({
             id: "task1",
             execute: () => Promise.reject(new Error("Task 1 failed")),
         });
-        builder.addTask({
+        taskGraph.addTask({
             id: "task2",
             execute: () => Promise.resolve("result2"),
         });
 
-        const runner = builder.build();
+        const runner = taskGraph.build();
         const result = await runner.run();
 
         assert.deepEqual(result, {
@@ -258,9 +244,9 @@ test("TaskGraphRunner", async (t) => {
 
 test("TaskGraphRunner - Complex Scenarios", async (t) => {
     await t.test("no tasks throws", async () => {
-        const builder = new TaskGraph().finalize();
+        const taskGraph = new TaskGraph();
 
-        assert.throws(() => builder.build(), /Unable to build TaskGraphRunner. No tasks added to the graph/);
+        assert.throws(() => taskGraph.build(), /Unable to build TaskGraphRunner. No tasks added to the graph/);
     });
 
     await t.test("running with empty topological order throws", async () => {
@@ -278,10 +264,10 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
 
     await t.test("mix of sync and async tasks with dependencies", async (t) => {
         const executionOrder: string[] = [];
-        const runner = new TaskGraph()
-            .setContext({ initialValue: 10 })
-            .setDependencies({ multiplier: 2 })
-            .finalize()
+        const runner = new TaskGraph({
+            contextValue: { initialValue: 10 },
+            dependencies: { multiplier: 2 },
+        })
             .addTask({
                 id: "syncTask1",
                 execute: ({ ctx, deps }) => {
@@ -340,7 +326,6 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
 
     await t.test("handling errors in mixed sync/async graph", async () => {
         const runner = new TaskGraph()
-            .finalize()
             .addTask({
                 id: "task1",
                 execute: () => "result1",
@@ -376,10 +361,12 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
     });
 
     await t.test("concurrent execution of independent tasks", async () => {
-        const builder = new TaskGraph().setContext(10).finalize();
+        const taskGraph = new TaskGraph({
+            contextValue: 10,
+        });
         const startTime = Date.now();
 
-        builder.addTask({
+        taskGraph.addTask({
             id: "asyncTask1",
             execute: async () => {
                 await new Promise((resolve) => setTimeout(resolve, 100));
@@ -387,7 +374,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
             },
         });
 
-        builder.addTask({
+        taskGraph.addTask({
             id: "asyncTask2",
             execute: async () => {
                 await new Promise((resolve) => setTimeout(resolve, 100));
@@ -395,7 +382,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
             },
         });
 
-        const runner = builder.build();
+        const runner = taskGraph.build();
         const result = await runner.run();
 
         const duration = Date.now() - startTime;
@@ -412,9 +399,11 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
 
     await t.test("complex dependency chain with mixed sync/async tasks", async () => {
         const executionOrder: string[] = [];
-        const runner = new TaskGraph()
-            .setContext(() => ({ initialValue: 10 }))
-            .finalize()
+        const runner = new TaskGraph({
+            contextValue: {
+                initialValue: 10,
+            },
+        })
             .addTask({
                 id: "start",
                 execute: () => {

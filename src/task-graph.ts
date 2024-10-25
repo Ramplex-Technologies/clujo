@@ -27,90 +27,54 @@ import { Context } from "./_context";
 import { Task, type TaskOptions } from "./_task";
 
 /**
- * Represents a task graph that can be built and executed.
- *
- * @template TTaskDependencies - Type of the dependencies each task will receive
- * @template TTaskContext - Type of the context each task will receive
- */
-export class TaskGraph<
-    TTaskDependencies extends Record<string, unknown> = Record<string, never>,
-    TTaskContext extends Record<string, unknown> & { initial: unknown } = { initial: unknown },
-> {
-    // start with an undefined context value (placed under key initial)
-    private _contextValueOrFactory: unknown = undefined;
-    // start with an empty dependencies object
-    private _dependencies: unknown = Object.create(null);
-
-    /**
-     * Finalizes the setup and returns an instance of `TaskGraphBuilder`.
-     * Once invoked, the initial context and dependencies are no longer mutable.
-     *
-     * @returns A new instance of `TaskGraphBuilder` with the current state.
-     */
-    public finalize() {
-        // return a new instance of TaskGraph with the current state
-        return new TaskGraphBuilder<TTaskDependencies, TTaskContext>(
-            this._dependencies as TTaskDependencies,
-            this._contextValueOrFactory as undefined | TTaskContext | (() => TTaskContext | Promise<TTaskContext>),
-        );
-    }
-
-    /**
-     * Sets the initial context for the task graph.
-     * This context will be passed to the first task(s) in the graph under the `initial` key.
-     * Multiple invocation of this method will override the previous context.
-     *
-     * @template TNewContext The type of the new context.
-     * @param valueOrFactory - The initial context value or a factory function to create it.
-     *                         If a function is provided, it can be synchronous or asynchronous.
-     * @returns A TaskGraph instance with the new context type.
-     */
-    public setContext<TNewContext>(valueOrFactory: TNewContext | (() => TNewContext | Promise<TNewContext>)) {
-        // set the context value to the provided value or factory
-        this._contextValueOrFactory = valueOrFactory;
-        // return the builder with the new context type
-        return this as unknown as TaskGraph<TTaskDependencies, { initial: TNewContext }>;
-    }
-
-    /**
-     * Sets the dependencies for the task graph. These dependencies will be available to all tasks in the graph.
-     * Multiple invocation of this method will override the previous dependencies.
-     *
-     * @template TNewDependencies The type of the new dependencies, which must be an object.
-     * @param value - The dependencies object to be used across all tasks in the graph.
-     * @returns A TaskGraph instance with the new dependencies type.
-     */
-    public setDependencies<TNewDependencies extends Record<string, unknown>>(value: TNewDependencies) {
-        if (typeof value !== "object" || value === null) {
-            throw new Error("Initial dependencies must be an object");
-        }
-        // set the dependencies object to the provided value
-        this._dependencies = value as unknown as TTaskDependencies;
-        // return the builder with the new dependencies type
-        return this as unknown as TaskGraph<TNewDependencies, TTaskContext>;
-    }
-}
-
-/**
- * Represents a task graph builder that can be used to add tasks to the graph.
+ * Represents a task graph which tasks can be added to
  * When built, the graph will be sorted topologically and returned as a `TaskGraphRunner` instance.
  *
  * @template TTaskDependencies - Type of the dependencies each task will receive
+ * @template TInitialTaskContext - Type of the context in the `initial` key that each task will receive
  * @template TTaskContext - Type of the context each task will receive
  * @template TAllDependencyIds - The task IDs that can be used as dependencies for new tasks
  */
-export class TaskGraphBuilder<
-    TTaskDependencies extends Record<string, unknown>,
-    TTaskContext extends Record<string, unknown> & { initial: unknown },
-    TAllDependencyIds extends string = string & keyof Omit<TTaskContext, "initial">,
+export class TaskGraph<
+    TTaskDependencies extends Record<string, unknown> = never,
+    TInitialTaskContext = undefined,
+    TTaskContext extends Record<string, unknown> & { initial: TInitialTaskContext } = { initial: TInitialTaskContext },
+    TAllDependencyIds extends string & keyof TTaskContext = never,
 > {
+    private readonly _contextValueOrFactory:
+        | TInitialTaskContext
+        | ((deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>)
+        | undefined;
+    private readonly _dependencies: TTaskDependencies = Object.create(null);
     private readonly _tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown>>();
     private readonly _topologicalOrder: string[] = [];
 
     constructor(
-        private _dependencies: TTaskDependencies,
-        private _contextValueOrFactory: undefined | TTaskContext | (() => TTaskContext | Promise<TTaskContext>),
-    ) {}
+        options?:
+            | {
+                  dependencies?: TTaskDependencies;
+                  contextValue?: TInitialTaskContext;
+              }
+            | {
+                  dependencies?: TTaskDependencies;
+                  contextFactory: (deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>;
+              },
+    ) {
+        if (options) {
+            if (options.dependencies !== undefined) {
+                if (typeof options.dependencies !== "object" || options.dependencies === null) {
+                    throw new Error("Dependencies must be a non-null object");
+                }
+                this._dependencies = options.dependencies;
+            }
+
+            if ("contextValue" in options) {
+                this._contextValueOrFactory = options.contextValue;
+            } else if ("contextFactory" in options) {
+                this._contextValueOrFactory = options.contextFactory;
+            }
+        }
+    }
 
     /**
      * Adds a new task to the graph.
@@ -153,8 +117,9 @@ export class TaskGraphBuilder<
             task.addDependency(depId);
         }
 
-        return this as unknown as TaskGraphBuilder<
+        return this as unknown as TaskGraph<
             TTaskDependencies,
+            TInitialTaskContext,
             TTaskContext &
                 Partial<{
                     [K in TTaskId]: TTaskReturn;
@@ -176,7 +141,7 @@ export class TaskGraphBuilder<
             throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
         }
         this._topologicalSort();
-        return new TaskGraphRunner(
+        return new TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext>(
             this._dependencies,
             this._contextValueOrFactory,
             this._topologicalOrder,
@@ -236,13 +201,17 @@ export class TaskGraphBuilder<
  */
 export class TaskGraphRunner<
     TTaskDependencies extends Record<string, unknown>,
+    TInitialTaskContext,
     TTaskContext extends Record<string, unknown> & { initial: unknown },
 > {
-    private readonly context = new Context<TTaskContext["initial"], TTaskContext>();
+    private readonly context = new Context<TInitialTaskContext, TTaskContext>();
 
     constructor(
         private _dependencies: TTaskDependencies,
-        private _contextValueOrFactory: undefined | TTaskContext | (() => TTaskContext | Promise<TTaskContext>),
+        private _contextValueOrFactory:
+            | undefined
+            | TInitialTaskContext
+            | ((deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>),
         private readonly _topologicalOrder: string[],
         private readonly _tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>,
     ) {}
@@ -259,15 +228,15 @@ export class TaskGraphRunner<
             throw new Error("No tasks to run. Did you forget to call topologicalSort?");
         }
 
-        let value: TTaskContext["initial"] | undefined;
+        let value: TInitialTaskContext | undefined;
         if (this._contextValueOrFactory) {
             value =
                 typeof this._contextValueOrFactory === "function"
                     ? await (
-                          this._contextValueOrFactory as () =>
-                              | TTaskContext["initial"]
-                              | Promise<TTaskContext["initial"]>
-                      )()
+                          this._contextValueOrFactory as (
+                              deps: TTaskDependencies,
+                          ) => TInitialTaskContext | Promise<TInitialTaskContext>
+                      )(this._dependencies)
                     : this._contextValueOrFactory;
         }
         this.context.reset(value);
