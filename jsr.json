@@ -9,6 +9,8 @@
             "src/**/*.ts"
         ],
         "exclude": [
+            ".husky/",
+            "examples/",
             "src/**/*.test.ts"
         ]
     }
