@@ -24,7 +24,7 @@
     "attributePosition": "auto",
     "formatWithErrors": false,
     "indentStyle": "space",
-    "indentWidth": 2,
+    "indentWidth": 4,
     "lineWidth": 120,
     "lineEnding": "lf",
     "include": ["**/*.ts", "**/*.test.ts"],

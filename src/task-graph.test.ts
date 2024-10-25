@@ -29,462 +29,462 @@ import type { TaskOptions } from "../src/_task";
 import { TaskGraph, type TaskGraphBuilder, TaskGraphRunner } from "../src/task-graph";
 
 test("TaskGraph", async (t) => {
-  await t.test("setContext with value", () => {
-    const taskGraph = new TaskGraph();
+    await t.test("setContext with value", () => {
+        const taskGraph = new TaskGraph();
 
-    const initialContext = { foo: "bar" };
-    const result = taskGraph.setContext(initialContext);
+        const initialContext = { foo: "bar" };
+        const result = taskGraph.setContext(initialContext);
 
-    assert.equal(result, taskGraph);
-  });
+        assert.equal(result, taskGraph);
+    });
 
-  await t.test("setContext with factory function", () => {
-    const taskGraph = new TaskGraph();
+    await t.test("setContext with factory function", () => {
+        const taskGraph = new TaskGraph();
 
-    const contextFactory = () => ({ foo: "bar" });
-    const result = taskGraph.setContext(contextFactory);
+        const contextFactory = () => ({ foo: "bar" });
+        const result = taskGraph.setContext(contextFactory);
 
-    assert.equal(result, taskGraph);
-  });
+        assert.equal(result, taskGraph);
+    });
 
-  await t.test("setDependencies", () => {
-    const taskGraph = new TaskGraph();
+    await t.test("setDependencies", () => {
+        const taskGraph = new TaskGraph();
 
-    const dependencies = { dep1: "value1", dep2: "value2" };
-    const result = taskGraph.setDependencies(dependencies);
+        const dependencies = { dep1: "value1", dep2: "value2" };
+        const result = taskGraph.setDependencies(dependencies);
 
-    assert.equal(result, taskGraph);
-  });
+        assert.equal(result, taskGraph);
+    });
 
-  await t.test("setDependencies with non object", () => {
-    const taskGraph = new TaskGraph();
+    await t.test("setDependencies with non object", () => {
+        const taskGraph = new TaskGraph();
 
-    // biome-ignore lint/suspicious/noExplicitAny: fake the input
-    assert.throws(() => taskGraph.setDependencies("invalid" as any), /Initial dependencies must be an object/);
-  });
+        // biome-ignore lint/suspicious/noExplicitAny: fake the input
+        assert.throws(() => taskGraph.setDependencies("invalid" as any), /Initial dependencies must be an object/);
+    });
 
-  await t.test("setDependencies with non object values", () => {
-    const taskGraph = new TaskGraph();
+    await t.test("setDependencies with non object values", () => {
+        const taskGraph = new TaskGraph();
 
-    // biome-ignore lint/suspicious/noExplicitAny: fake the input
-    assert.throws(() => taskGraph.setDependencies(null as any), /Initial dependencies must be an object/);
-  });
+        // biome-ignore lint/suspicious/noExplicitAny: fake the input
+        assert.throws(() => taskGraph.setDependencies(null as any), /Initial dependencies must be an object/);
+    });
 
-  await t.test("finalize returns TaskGraphBuilder", () => {
-    const taskGraph = new TaskGraph();
+    await t.test("finalize returns TaskGraphBuilder", () => {
+        const taskGraph = new TaskGraph();
 
-    const builder = taskGraph.finalize();
+        const builder = taskGraph.finalize();
 
-    assert.ok(typeof builder.addTask === "function");
-    assert.ok(typeof builder.build === "function");
-  });
+        assert.ok(typeof builder.addTask === "function");
+        assert.ok(typeof builder.build === "function");
+    });
 });
 
 test("TaskGraphBuilder", async (t) => {
-  await t.test("addTask with no context or dependencies", async () => {
-    const builder = new TaskGraph().finalize();
-    const task = {
-      id: "task1",
-      execute: () => Promise.resolve("result1"),
-    };
-    const returnedBuilder = builder.addTask(task);
+    await t.test("addTask with no context or dependencies", async () => {
+        const builder = new TaskGraph().finalize();
+        const task = {
+            id: "task1",
+            execute: () => Promise.resolve("result1"),
+        };
+        const returnedBuilder = builder.addTask(task);
 
-    assert.equal(returnedBuilder, builder);
-  });
-
-  await t.test("addTask with self dependency throws", async () => {
-    const builder = new TaskGraph().finalize() as unknown as TaskGraphBuilder<
-      Record<string, unknown>,
-      { initial: unknown },
-      "task1"
-    >;
-    const task: TaskOptions<"task1", Record<string, unknown>, { initial: unknown }, Promise<string>, "task1"> = {
-      id: "task1",
-      execute: () => Promise.resolve("result1"),
-      dependencies: ["task1"],
-    };
-
-    assert.throws(() => builder.addTask(task), /A task cannot depend on itself/);
-  });
-
-  await t.test("validate retry policy throws when maxRetries is invalid", async () => {
-    const builder = new TaskGraph().finalize();
-    const task = {
-      id: "task1",
-      execute: () => Promise.resolve("result1"),
-      retryPolicy: { maxRetries: -1, retryDelayMs: 100 },
-    };
-
-    assert.throws(() => builder.addTask(task), /maxRetries must be a non-negative integer/);
-  });
-
-  await t.test("validate retry policy throws when retryDelayMs is invalid", async () => {
-    const builder = new TaskGraph().finalize();
-    const task = {
-      id: "task1",
-      execute: () => Promise.resolve("result1"),
-      retryPolicy: { maxRetries: 1, retryDelayMs: -1 },
-    };
-
-    assert.throws(() => builder.addTask(task), /retryDelayMs must be a non-negative number/);
-  });
-
-  await t.test("Adding dependency id that is not a string throws", async () => {
-    const builder = new TaskGraph().finalize();
-    const task = {
-      id: "task1",
-      execute: () => Promise.resolve("result1"),
-      dependencies: [1],
-    };
-
-    // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-    assert.throws(() => builder.addTask(task as any), /Dependency ID must be a string/);
-  });
-
-  await t.test("addTask with existing task id throws", async () => {
-    const builder = new TaskGraph().finalize();
-    const task = {
-      id: "task1",
-      execute: () => Promise.resolve("result1"),
-    };
-
-    builder.addTask(task);
-
-    assert.throws(() => builder.addTask(task), /Task with id task1 already exists/);
-  });
-
-  await t.test("addTask with dependency that does not exist throws", async () => {
-    const builder = new TaskGraph().finalize();
-    const task = {
-      id: "task1",
-      execute: () => Promise.resolve("result1"),
-      dependencies: ["task2"],
-    };
-
-    // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-    assert.throws(() => builder.addTask(task as any), /Dependency task2 not found for task task1/);
-  });
-
-  await t.test("addTask with dependencies", (t) => {
-    const builder = new TaskGraph().finalize();
-
-    const returnedBuilder = builder
-      .addTask({
-        id: "task1",
-        execute: () => Promise.resolve("result1"),
-      })
-      .addTask({
-        id: "task2",
-        dependencies: ["task1"],
-        execute: () => Promise.resolve("result2"),
-      });
-
-    assert.equal(returnedBuilder, builder);
-  });
-
-  await t.test("build returns TaskGraphRunner", () => {
-    const builder = new TaskGraph().finalize();
-
-    builder.addTask({
-      id: "task1",
-      execute: () => Promise.resolve("result1"),
+        assert.equal(returnedBuilder, builder);
     });
-    const runner = builder.build();
 
-    assert.ok(typeof runner.run === "function");
-  });
+    await t.test("addTask with self dependency throws", async () => {
+        const builder = new TaskGraph().finalize() as unknown as TaskGraphBuilder<
+            Record<string, unknown>,
+            { initial: unknown },
+            "task1"
+        >;
+        const task: TaskOptions<"task1", Record<string, unknown>, { initial: unknown }, Promise<string>, "task1"> = {
+            id: "task1",
+            execute: () => Promise.resolve("result1"),
+            dependencies: ["task1"],
+        };
 
-  await t.test("build throws error when no tasks added", () => {
-    const builder = new TaskGraph().finalize();
+        assert.throws(() => builder.addTask(task), /A task cannot depend on itself/);
+    });
 
-    assert.throws(() => builder.build(), /No tasks added to the graph/);
-  });
+    await t.test("validate retry policy throws when maxRetries is invalid", async () => {
+        const builder = new TaskGraph().finalize();
+        const task = {
+            id: "task1",
+            execute: () => Promise.resolve("result1"),
+            retryPolicy: { maxRetries: -1, retryDelayMs: 100 },
+        };
+
+        assert.throws(() => builder.addTask(task), /maxRetries must be a non-negative integer/);
+    });
+
+    await t.test("validate retry policy throws when retryDelayMs is invalid", async () => {
+        const builder = new TaskGraph().finalize();
+        const task = {
+            id: "task1",
+            execute: () => Promise.resolve("result1"),
+            retryPolicy: { maxRetries: 1, retryDelayMs: -1 },
+        };
+
+        assert.throws(() => builder.addTask(task), /retryDelayMs must be a non-negative number/);
+    });
+
+    await t.test("Adding dependency id that is not a string throws", async () => {
+        const builder = new TaskGraph().finalize();
+        const task = {
+            id: "task1",
+            execute: () => Promise.resolve("result1"),
+            dependencies: [1],
+        };
+
+        // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+        assert.throws(() => builder.addTask(task as any), /Dependency ID must be a string/);
+    });
+
+    await t.test("addTask with existing task id throws", async () => {
+        const builder = new TaskGraph().finalize();
+        const task = {
+            id: "task1",
+            execute: () => Promise.resolve("result1"),
+        };
+
+        builder.addTask(task);
+
+        assert.throws(() => builder.addTask(task), /Task with id task1 already exists/);
+    });
+
+    await t.test("addTask with dependency that does not exist throws", async () => {
+        const builder = new TaskGraph().finalize();
+        const task = {
+            id: "task1",
+            execute: () => Promise.resolve("result1"),
+            dependencies: ["task2"],
+        };
+
+        // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+        assert.throws(() => builder.addTask(task as any), /Dependency task2 not found for task task1/);
+    });
+
+    await t.test("addTask with dependencies", (t) => {
+        const builder = new TaskGraph().finalize();
+
+        const returnedBuilder = builder
+            .addTask({
+                id: "task1",
+                execute: () => Promise.resolve("result1"),
+            })
+            .addTask({
+                id: "task2",
+                dependencies: ["task1"],
+                execute: () => Promise.resolve("result2"),
+            });
+
+        assert.equal(returnedBuilder, builder);
+    });
+
+    await t.test("build returns TaskGraphRunner", () => {
+        const builder = new TaskGraph().finalize();
+
+        builder.addTask({
+            id: "task1",
+            execute: () => Promise.resolve("result1"),
+        });
+        const runner = builder.build();
+
+        assert.ok(typeof runner.run === "function");
+    });
+
+    await t.test("build throws error when no tasks added", () => {
+        const builder = new TaskGraph().finalize();
+
+        assert.throws(() => builder.build(), /No tasks added to the graph/);
+    });
 });
 
 test("TaskGraphRunner", async (t) => {
-  await t.test("run executes tasks in correct order", async () => {
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    let builder: any = new TaskGraph().finalize();
-    const executionOrder: string[] = [];
+    await t.test("run executes tasks in correct order", async () => {
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+        let builder: any = new TaskGraph().finalize();
+        const executionOrder: string[] = [];
 
-    builder = builder.addTask({
-      id: "task1",
-      execute: () => {
-        executionOrder.push("task1");
-        return "result1";
-      },
-    });
-    builder = builder.addTask({
-      id: "task2",
-      dependencies: ["task1"],
-      execute: () => {
-        executionOrder.push("task2");
-        return "result2";
-      },
-    });
+        builder = builder.addTask({
+            id: "task1",
+            execute: () => {
+                executionOrder.push("task1");
+                return "result1";
+            },
+        });
+        builder = builder.addTask({
+            id: "task2",
+            dependencies: ["task1"],
+            execute: () => {
+                executionOrder.push("task2");
+                return "result2";
+            },
+        });
 
-    const runner = builder.build();
-    const result = await runner.run();
+        const runner = builder.build();
+        const result = await runner.run();
 
-    assert.deepEqual(executionOrder, ["task1", "task2"]);
-    assert.deepEqual(result, {
-      initial: undefined,
-      task1: "result1",
-      task2: "result2",
-    });
-  });
-
-  await t.test("run handles task failures", async () => {
-    const builder = new TaskGraph().finalize();
-
-    builder.addTask({
-      id: "task1",
-      execute: () => Promise.reject(new Error("Task 1 failed")),
-    });
-    builder.addTask({
-      id: "task2",
-      execute: () => Promise.resolve("result2"),
+        assert.deepEqual(executionOrder, ["task1", "task2"]);
+        assert.deepEqual(result, {
+            initial: undefined,
+            task1: "result1",
+            task2: "result2",
+        });
     });
 
-    const runner = builder.build();
-    const result = await runner.run();
+    await t.test("run handles task failures", async () => {
+        const builder = new TaskGraph().finalize();
 
-    assert.deepEqual(result, {
-      initial: undefined,
-      task2: "result2",
+        builder.addTask({
+            id: "task1",
+            execute: () => Promise.reject(new Error("Task 1 failed")),
+        });
+        builder.addTask({
+            id: "task2",
+            execute: () => Promise.resolve("result2"),
+        });
+
+        const runner = builder.build();
+        const result = await runner.run();
+
+        assert.deepEqual(result, {
+            initial: undefined,
+            task2: "result2",
+        });
     });
-  });
 });
 
 test("TaskGraphRunner - Complex Scenarios", async (t) => {
-  await t.test("no tasks throws", async () => {
-    const builder = new TaskGraph().finalize();
+    await t.test("no tasks throws", async () => {
+        const builder = new TaskGraph().finalize();
 
-    assert.throws(() => builder.build(), /Unable to build TaskGraphRunner. No tasks added to the graph/);
-  });
-
-  await t.test("running with empty topological order throws", async () => {
-    const runner = new TaskGraphRunner({}, undefined, [], new Map());
-
-    await assert.rejects(runner.run(), /No tasks to run. Did you forget to call topologicalSort?/);
-  });
-
-  await t.test("running with no context value throws", async () => {
-    // biome-ignore lint/suspicious/noExplicitAny: faking input
-    const runner = new TaskGraphRunner({}, undefined, ["task1"], new Map<any, any>([["task2", { id: "task1" }]]));
-
-    await assert.rejects(runner.run(), /Task task1 not found/);
-  });
-
-  await t.test("mix of sync and async tasks with dependencies", async (t) => {
-    const executionOrder: string[] = [];
-    const runner = new TaskGraph()
-      .setContext({ initialValue: 10 })
-      .setDependencies({ multiplier: 2 })
-      .finalize()
-      .addTask({
-        id: "syncTask1",
-        execute: ({ ctx, deps }) => {
-          executionOrder.push("syncTask1");
-          return ctx.initial.initialValue * deps.multiplier;
-        },
-      })
-      .addTask({
-        id: "asyncTask1",
-        dependencies: ["syncTask1"],
-        execute: async ({ ctx }) => {
-          if (!ctx.syncTask1) {
-            throw new Error("syncTask1 not found in context");
-          }
-          executionOrder.push("asyncTask1");
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          return ctx.syncTask1 + 5;
-        },
-      })
-      .addTask({
-        id: "syncTask2",
-        dependencies: ["syncTask1"],
-        execute: ({ ctx }) => {
-          if (!ctx.syncTask1) {
-            throw new Error("syncTask1 not found in context");
-          }
-          executionOrder.push("syncTask2");
-          return ctx.syncTask1 * 3;
-        },
-      })
-      .addTask({
-        id: "asyncTask2",
-        dependencies: ["asyncTask1", "syncTask2"],
-        execute: async ({ ctx }) => {
-          if (!ctx.asyncTask1 || !ctx.syncTask2) {
-            throw new Error("asyncTask1 or syncTask2 not found in context");
-          }
-          executionOrder.push("asyncTask2");
-          await new Promise((resolve) => setTimeout(resolve, 30));
-          return ctx.asyncTask1 + ctx.syncTask2;
-        },
-      })
-      .build();
-
-    const result = await runner.run();
-
-    assert.deepEqual(executionOrder, ["syncTask1", "asyncTask1", "syncTask2", "asyncTask2"]);
-    assert.deepEqual(result, {
-      initial: { initialValue: 10 },
-      syncTask1: 20,
-      asyncTask1: 25,
-      syncTask2: 60,
-      asyncTask2: 85,
-    });
-  });
-
-  await t.test("handling errors in mixed sync/async graph", async () => {
-    const runner = new TaskGraph()
-      .finalize()
-      .addTask({
-        id: "task1",
-        execute: () => "result1",
-      })
-      .addTask({
-        id: "task2",
-        dependencies: ["task1"],
-        execute: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 20));
-          throw new Error("Task 2 failed");
-        },
-      })
-      .addTask({
-        id: "task3",
-        dependencies: ["task1"],
-        execute: () => "result3",
-      })
-      .addTask({
-        id: "task4",
-        dependencies: ["task2", "task3"],
-        execute: ({ ctx }) => `${ctx.task2} - ${ctx.task3}`,
-      })
-      .build();
-    const result = await runner.run();
-
-    assert.deepEqual(result, {
-      initial: undefined,
-      task1: "result1",
-      task3: "result3",
-    });
-    assert.ok(!("task2" in result));
-    assert.ok(!("task4" in result));
-  });
-
-  await t.test("concurrent execution of independent tasks", async () => {
-    const builder = new TaskGraph().setContext(10).finalize();
-    const startTime = Date.now();
-
-    builder.addTask({
-      id: "asyncTask1",
-      execute: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return "result1";
-      },
+        assert.throws(() => builder.build(), /Unable to build TaskGraphRunner. No tasks added to the graph/);
     });
 
-    builder.addTask({
-      id: "asyncTask2",
-      execute: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return "result2";
-      },
+    await t.test("running with empty topological order throws", async () => {
+        const runner = new TaskGraphRunner({}, undefined, [], new Map());
+
+        await assert.rejects(runner.run(), /No tasks to run. Did you forget to call topologicalSort?/);
     });
 
-    const runner = builder.build();
-    const result = await runner.run();
+    await t.test("running with no context value throws", async () => {
+        // biome-ignore lint/suspicious/noExplicitAny: faking input
+        const runner = new TaskGraphRunner({}, undefined, ["task1"], new Map<any, any>([["task2", { id: "task1" }]]));
 
-    const duration = Date.now() - startTime;
-
-    assert.deepEqual(result, {
-      initial: 10,
-      asyncTask1: "result1",
-      asyncTask2: "result2",
+        await assert.rejects(runner.run(), /Task task1 not found/);
     });
 
-    // Ensure tasks ran concurrently (with some tolerance for test environment variations)
-    assert.ok(duration < 130, `Expected duration < 130ms, but was ${duration}ms`);
-  });
+    await t.test("mix of sync and async tasks with dependencies", async (t) => {
+        const executionOrder: string[] = [];
+        const runner = new TaskGraph()
+            .setContext({ initialValue: 10 })
+            .setDependencies({ multiplier: 2 })
+            .finalize()
+            .addTask({
+                id: "syncTask1",
+                execute: ({ ctx, deps }) => {
+                    executionOrder.push("syncTask1");
+                    return ctx.initial.initialValue * deps.multiplier;
+                },
+            })
+            .addTask({
+                id: "asyncTask1",
+                dependencies: ["syncTask1"],
+                execute: async ({ ctx }) => {
+                    if (!ctx.syncTask1) {
+                        throw new Error("syncTask1 not found in context");
+                    }
+                    executionOrder.push("asyncTask1");
+                    await new Promise((resolve) => setTimeout(resolve, 50));
+                    return ctx.syncTask1 + 5;
+                },
+            })
+            .addTask({
+                id: "syncTask2",
+                dependencies: ["syncTask1"],
+                execute: ({ ctx }) => {
+                    if (!ctx.syncTask1) {
+                        throw new Error("syncTask1 not found in context");
+                    }
+                    executionOrder.push("syncTask2");
+                    return ctx.syncTask1 * 3;
+                },
+            })
+            .addTask({
+                id: "asyncTask2",
+                dependencies: ["asyncTask1", "syncTask2"],
+                execute: async ({ ctx }) => {
+                    if (!ctx.asyncTask1 || !ctx.syncTask2) {
+                        throw new Error("asyncTask1 or syncTask2 not found in context");
+                    }
+                    executionOrder.push("asyncTask2");
+                    await new Promise((resolve) => setTimeout(resolve, 30));
+                    return ctx.asyncTask1 + ctx.syncTask2;
+                },
+            })
+            .build();
 
-  await t.test("complex dependency chain with mixed sync/async tasks", async () => {
-    const executionOrder: string[] = [];
-    const runner = new TaskGraph()
-      .setContext(() => ({ initialValue: 10 }))
-      .finalize()
-      .addTask({
-        id: "start",
-        execute: () => {
-          executionOrder.push("start");
-          return "start";
-        },
-      })
-      .addTask({
-        id: "async1",
-        dependencies: ["start"],
-        execute: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 30));
-          executionOrder.push("async1");
-          return "async1";
-        },
-      })
-      .addTask({
-        id: "sync1",
-        dependencies: ["start"],
-        execute: () => {
-          executionOrder.push("sync1");
-          return "sync1";
-        },
-      })
-      .addTask({
-        id: "async2",
-        dependencies: ["async1", "sync1"],
-        execute: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 20));
-          executionOrder.push("async2");
-          return "async2";
-        },
-      })
-      .addTask({
-        id: "sync2",
-        dependencies: ["sync1"],
-        execute: () => {
-          executionOrder.push("sync2");
-          return "sync2";
-        },
-      })
-      .addTask({
-        id: "finalTask",
-        dependencies: ["async2", "sync2"],
-        execute: () => {
-          executionOrder.push("finalTask");
-          return "final";
-        },
-      })
-      .build();
+        const result = await runner.run();
 
-    const result = await runner.run();
-
-    assert.deepEqual(result, {
-      initial: { initialValue: 10 },
-      start: "start",
-      async1: "async1",
-      sync1: "sync1",
-      async2: "async2",
-      sync2: "sync2",
-      finalTask: "final",
+        assert.deepEqual(executionOrder, ["syncTask1", "asyncTask1", "syncTask2", "asyncTask2"]);
+        assert.deepEqual(result, {
+            initial: { initialValue: 10 },
+            syncTask1: 20,
+            asyncTask1: 25,
+            syncTask2: 60,
+            asyncTask2: 85,
+        });
     });
 
-    // Check execution order
-    assert.equal(executionOrder[0], "start");
-    assert.ok(executionOrder.indexOf("async1") > executionOrder.indexOf("start"));
-    assert.ok(executionOrder.indexOf("sync1") > executionOrder.indexOf("start"));
-    assert.ok(executionOrder.indexOf("async2") > executionOrder.indexOf("async1"));
-    assert.ok(executionOrder.indexOf("async2") > executionOrder.indexOf("sync1"));
-    assert.ok(executionOrder.indexOf("sync2") > executionOrder.indexOf("sync1"));
-    assert.equal(executionOrder[executionOrder.length - 1], "finalTask");
-  });
+    await t.test("handling errors in mixed sync/async graph", async () => {
+        const runner = new TaskGraph()
+            .finalize()
+            .addTask({
+                id: "task1",
+                execute: () => "result1",
+            })
+            .addTask({
+                id: "task2",
+                dependencies: ["task1"],
+                execute: async () => {
+                    await new Promise((resolve) => setTimeout(resolve, 20));
+                    throw new Error("Task 2 failed");
+                },
+            })
+            .addTask({
+                id: "task3",
+                dependencies: ["task1"],
+                execute: () => "result3",
+            })
+            .addTask({
+                id: "task4",
+                dependencies: ["task2", "task3"],
+                execute: ({ ctx }) => `${ctx.task2} - ${ctx.task3}`,
+            })
+            .build();
+        const result = await runner.run();
+
+        assert.deepEqual(result, {
+            initial: undefined,
+            task1: "result1",
+            task3: "result3",
+        });
+        assert.ok(!("task2" in result));
+        assert.ok(!("task4" in result));
+    });
+
+    await t.test("concurrent execution of independent tasks", async () => {
+        const builder = new TaskGraph().setContext(10).finalize();
+        const startTime = Date.now();
+
+        builder.addTask({
+            id: "asyncTask1",
+            execute: async () => {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                return "result1";
+            },
+        });
+
+        builder.addTask({
+            id: "asyncTask2",
+            execute: async () => {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                return "result2";
+            },
+        });
+
+        const runner = builder.build();
+        const result = await runner.run();
+
+        const duration = Date.now() - startTime;
+
+        assert.deepEqual(result, {
+            initial: 10,
+            asyncTask1: "result1",
+            asyncTask2: "result2",
+        });
+
+        // Ensure tasks ran concurrently (with some tolerance for test environment variations)
+        assert.ok(duration < 130, `Expected duration < 130ms, but was ${duration}ms`);
+    });
+
+    await t.test("complex dependency chain with mixed sync/async tasks", async () => {
+        const executionOrder: string[] = [];
+        const runner = new TaskGraph()
+            .setContext(() => ({ initialValue: 10 }))
+            .finalize()
+            .addTask({
+                id: "start",
+                execute: () => {
+                    executionOrder.push("start");
+                    return "start";
+                },
+            })
+            .addTask({
+                id: "async1",
+                dependencies: ["start"],
+                execute: async () => {
+                    await new Promise((resolve) => setTimeout(resolve, 30));
+                    executionOrder.push("async1");
+                    return "async1";
+                },
+            })
+            .addTask({
+                id: "sync1",
+                dependencies: ["start"],
+                execute: () => {
+                    executionOrder.push("sync1");
+                    return "sync1";
+                },
+            })
+            .addTask({
+                id: "async2",
+                dependencies: ["async1", "sync1"],
+                execute: async () => {
+                    await new Promise((resolve) => setTimeout(resolve, 20));
+                    executionOrder.push("async2");
+                    return "async2";
+                },
+            })
+            .addTask({
+                id: "sync2",
+                dependencies: ["sync1"],
+                execute: () => {
+                    executionOrder.push("sync2");
+                    return "sync2";
+                },
+            })
+            .addTask({
+                id: "finalTask",
+                dependencies: ["async2", "sync2"],
+                execute: () => {
+                    executionOrder.push("finalTask");
+                    return "final";
+                },
+            })
+            .build();
+
+        const result = await runner.run();
+
+        assert.deepEqual(result, {
+            initial: { initialValue: 10 },
+            start: "start",
+            async1: "async1",
+            sync1: "sync1",
+            async2: "async2",
+            sync2: "sync2",
+            finalTask: "final",
+        });
+
+        // Check execution order
+        assert.equal(executionOrder[0], "start");
+        assert.ok(executionOrder.indexOf("async1") > executionOrder.indexOf("start"));
+        assert.ok(executionOrder.indexOf("sync1") > executionOrder.indexOf("start"));
+        assert.ok(executionOrder.indexOf("async2") > executionOrder.indexOf("async1"));
+        assert.ok(executionOrder.indexOf("async2") > executionOrder.indexOf("sync1"));
+        assert.ok(executionOrder.indexOf("sync2") > executionOrder.indexOf("sync1"));
+        assert.equal(executionOrder[executionOrder.length - 1], "finalTask");
+    });
 });

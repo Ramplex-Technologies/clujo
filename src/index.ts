@@ -37,7 +37,7 @@ import { TaskGraph } from "./task-graph";
 
 export { Clujo, Scheduler, TaskGraph };
 export default {
-  Clujo,
-  Scheduler,
-  TaskGraph,
+    Clujo,
+    Scheduler,
+    TaskGraph,
 };

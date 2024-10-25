@@ -14,3 +14,7 @@ node_modules/
 
 # Build files
 dist/
+
+# Dev settings
+.vscode/
+.zed/
