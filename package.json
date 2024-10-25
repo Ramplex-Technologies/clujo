@@ -1,71 +1,71 @@
 {
-  "name": "clujo",
-  "author": "Rami Pellumbi",
-  "description": "Schedule interdependent tasks on a cron-like schedule with parallel task execution. Built in distributed locking to prevent overlapping executions in a clustered environment.",
-  "keywords": [
-    "task-scheduler",
-    "cron",
-    "workflow-orchestration",
-    "job-automation",
-    "distributed-locking",
-    "parallel-execution",
-    "concurrent-tasks",
-    "dependency-management",
-    "typescript",
-    "redis",
-    "node",
-    "javascript",
-    "topological-sort",
-    "single-execution",
-    "cluster-safe",
-    "sync-jobs",
-    "async-jobs",
-    "task-dependencies"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ramipellumbi/clujo/tree/main"
-  },
-  "license": "MIT",
-  "private": false,
-  "version": "1.1.2",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "package.json"
-  ],
-  "exports": {
-    ".": {
-      "require": "./dist/index.js",
-      "import": "./dist/index.mjs",
-      "types": "./dist/index.d.ts"
+    "name": "clujo",
+    "author": "Rami Pellumbi",
+    "description": "Schedule interdependent tasks on a cron-like schedule with parallel task execution. Built in distributed locking to prevent overlapping executions in a clustered environment.",
+    "keywords": [
+        "task-scheduler",
+        "cron",
+        "workflow-orchestration",
+        "job-automation",
+        "distributed-locking",
+        "parallel-execution",
+        "concurrent-tasks",
+        "dependency-management",
+        "typescript",
+        "redis",
+        "node",
+        "javascript",
+        "topological-sort",
+        "single-execution",
+        "cluster-safe",
+        "sync-jobs",
+        "async-jobs",
+        "task-dependencies"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ramipellumbi/clujo/tree/main"
+    },
+    "license": "MIT",
+    "private": false,
+    "version": "2.0,0",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "package.json"
+    ],
+    "exports": {
+        ".": {
+            "require": "./dist/index.js",
+            "import": "./dist/index.mjs",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "pnpm clean && tsup",
+        "dev": "tsup --watch",
+        "format": "biome format --write ./src",
+        "lint": "biome check --write ./src",
+        "test": "node -r esbuild-register --test --experimental-test-module-mocks --experimental-test-coverage src/**/*.test.ts",
+        "prepare": "husky"
+    },
+    "dependencies": {
+        "croner": "^9.0.0",
+        "redis-semaphore": "^5.6.1"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^1.9.4",
+        "@types/node": "^22.7.9",
+        "esbuild": "^0.24.0",
+        "esbuild-register": "^3.6.0",
+        "husky": "^9.1.6",
+        "ioredis": "^5.4.1",
+        "rimraf": "^6.0.1",
+        "ts-node": "^10.9.2",
+        "tsup": "^8.3.0",
+        "typescript": "^5.6.3"
     }
-  },
-  "scripts": {
-    "clean": "rimraf dist",
-    "build": "pnpm clean && tsup",
-    "dev": "tsup --watch",
-    "format": "biome format --write ./src",
-    "lint": "biome check --write ./src",
-    "test": "node -r esbuild-register --test --experimental-test-module-mocks --experimental-test-coverage src/**/*.test.ts",
-    "prepare": "husky"
-  },
-  "dependencies": {
-    "croner": "^9.0.0",
-    "redis-semaphore": "^5.6.1"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
-    "@types/node": "^22.7.9",
-    "esbuild": "^0.24.0",
-    "esbuild-register": "^3.6.0",
-    "husky": "^9.1.6",
-    "ioredis": "^5.4.1",
-    "rimraf": "^6.0.1",
-    "ts-node": "^10.9.2",
-    "tsup": "^8.3.0",
-    "typescript": "^5.6.3"
-  }
 }
