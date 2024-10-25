@@ -22,13 +22,13 @@
 
 # clujo
 
-Clujo is a flexible solution for managing scheduled tasks in your distributed Node.js applications. It would not be possible without the amazing work of the following projects:
+Clujo is a flexible solution for managing scheduled tasks in your distributed Node.js / Deno applications. It would not be possible without the amazing work of the following projects:
 
 - [Croner](https://github.com/Hexagon/croner/tree/master?tab=readme-ov-file): used for running task graphs on a cron schedule
 - [ioredis](https://github.com/redis/ioredis) - (not a dependency, but the supported redis client) used to ensure single execution in a distributed environment
 - [redis-semaphore](https://github.com/swarthy/redis-semaphore) (only used if an `ioredis` instance is provided to start method) - used to ensure single execution in a distributed environment
 
-Coming soon: `bun` and `deno` support.
+Coming soon: bun support.
 
 ## Features
 
@@ -44,25 +44,31 @@ Coming soon: `bun` and `deno` support.
 
 # Installation
 
-Install Clujo using npm, pnpm, yarn, or your favorite package manager:
+Clujo is available on [jsr](https://jsr.io/@ramplex/clujo) and [npm](https://www.npmjs.com/package/clujo), and supports
+Node.js and Deno v2.0.0 or later.
 
-```bash
-pnpm install clujo
-```
 
-or
+## npm registry
+
+Install Clujo using npm, pnpm, yarn:
 
 ```bash
 npm install clujo
-```
-
-or
-
-```bash
 yarn add clujo
+pnpm install clujo
 ```
 
-# Quick Start
+## jsr registry
+
+### deno
+
+deno add jsr:@ramplex/clujo
+
+### npm (one of the below, depending on your package manager)
+npx jsr add @ramplex/clujo
+yarn dlx jsr add @ramplex/clujo
+pnpm dlx jsr add @ramplex/clujo
+bunx jsr add @ramplex/clujo
 
 Here's a simple example to get you started with Clujo:
 
