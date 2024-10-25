@@ -1,6 +1,6 @@
 {
     "name": "@ramplex/clujo",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "exports": "./src/index.ts",
     "include": [
         "LICENSE",
