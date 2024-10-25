@@ -65,10 +65,15 @@ pnpm install clujo
 deno add jsr:@ramplex/clujo
 
 ### npm (one of the below, depending on your package manager)
+
+```bash
 npx jsr add @ramplex/clujo
 yarn dlx jsr add @ramplex/clujo
 pnpm dlx jsr add @ramplex/clujo
 bunx jsr add @ramplex/clujo
+```
+
+# Quick Start
 
 Here's a simple example to get you started with Clujo:
 
