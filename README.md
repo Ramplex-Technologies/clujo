@@ -30,6 +30,8 @@ Clujo is a flexible solution for managing scheduled tasks in your distributed No
 
 Coming soon: bun support.
 
+**IMPORTANT**: Clujo is now published under `@ramplex/clujo` on npm and jsr. If you are using the old `clujo` package, please update your dependencies to use `@ramplex/clujo` instead. All future versions will be published under the new package name.
+
 ## Features
 
 - Clujo provides an intuitive interface for setting up cron-like schedules, making it easy to create and manage recurring tasks.
@@ -53,9 +55,9 @@ Node.js and Deno v2.0.0 or later.
 Install Clujo using npm, pnpm, yarn:
 
 ```bash
-npm install clujo
-yarn add clujo
-pnpm install clujo
+npm install @ramplex/clujo
+yarn add @ramplex/clujo
+pnpm install @ramplex/clujo
 ```
 
 ## jsr registry
