@@ -50,7 +50,7 @@ export class Clujo<
     public readonly id: string;
 
     private readonly _cron: Cron;
-    private readonly _taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext>;
+    private readonly _taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
 
     private _hasStarted = false;
 
@@ -82,7 +82,7 @@ export class Clujo<
         cron,
     }: {
         id: string;
-        taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext>;
+        taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
         cron: { pattern: string | Date; options?: CronOptions };
     }) {
         if (!id) {
