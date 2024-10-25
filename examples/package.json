@@ -1,11 +1,11 @@
 {
-  "name": "simple-clujo-example",
-  "version": "1.0.0",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "clujo": "^1.1.1"
-  }
+    "name": "simple-clujo-example",
+    "version": "1.0.0",
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "dependencies": {
+        "clujo": "^2.0.0"
+    }
 }
