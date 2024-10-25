@@ -62,7 +62,9 @@ pnpm install clujo
 
 ### deno
 
+```bash
 deno add jsr:@ramplex/clujo
+```
 
 ### npm (one of the below, depending on your package manager)
 
