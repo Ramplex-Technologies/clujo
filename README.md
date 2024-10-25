@@ -81,7 +81,7 @@ pnpm dlx jsr add @ramplex/clujo
 Here's a simple example to get you started with Clujo:
 
 ```typescript
-import { TaskGraph, Clujo } from 'clujo';
+import { TaskGraph, Clujo } from '@ramplex/clujo';
 
 // Define your tasks
 const tasks = new TaskGraph({
