@@ -1,5 +1,5 @@
 {
-    "name": "clujo",
+    "name": "@ramplex/clujo",
     "author": "Rami Pellumbi",
     "description": "Schedule interdependent tasks on a cron-like schedule with parallel task execution. Built in distributed locking to prevent overlapping executions in a clustered environment.",
     "keywords": [
