@@ -52,13 +52,13 @@ export class TaskGraph<
     constructor(
         options?:
             | {
-                dependencies?: TTaskDependencies;
-                contextValue?: TInitialTaskContext;
-            }
+                  dependencies?: TTaskDependencies;
+                  contextValue?: TInitialTaskContext;
+              }
             | {
-                dependencies?: TTaskDependencies;
-                contextFactory: (deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>;
-            },
+                  dependencies?: TTaskDependencies;
+                  contextFactory: (deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>;
+              },
     ) {
         if (options) {
             if (options.dependencies !== undefined) {
@@ -119,9 +119,9 @@ export class TaskGraph<
             TTaskDependencies,
             TInitialTaskContext,
             TTaskContext &
-            Partial<{
-                [K in TTaskId]: TTaskReturn;
-            }>,
+                Partial<{
+                    [K in TTaskId]: TTaskReturn;
+                }>,
             TAllDependencyIds | TTaskId
         >;
     }
@@ -212,7 +212,7 @@ export class TaskGraphRunner<
             | ((deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>),
         private readonly _topologicalOrder: string[],
         private readonly _tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>,
-    ) { }
+    ) {}
 
     /**
      * Runs the tasks in the graph in topological order.
@@ -231,10 +231,10 @@ export class TaskGraphRunner<
             value =
                 typeof this._contextValueOrFactory === "function"
                     ? await (
-                        this._contextValueOrFactory as (
-                            deps: TTaskDependencies,
-                        ) => TInitialTaskContext | Promise<TInitialTaskContext>
-                    )(this._dependencies)
+                          this._contextValueOrFactory as (
+                              deps: TTaskDependencies,
+                          ) => TInitialTaskContext | Promise<TInitialTaskContext>
+                      )(this._dependencies)
                     : this._contextValueOrFactory;
         }
         this.context.reset(value);
