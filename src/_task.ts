@@ -185,7 +185,7 @@ export class Task<
      *
      * @returns The current status of the task
      */
-    public get status() {
+    public get status(): TaskStatus {
         return this._status;
     }
 

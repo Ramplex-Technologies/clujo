@@ -121,11 +121,11 @@ export class Clujo<
             onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
             runImmediately?: boolean;
         } = {
-            redis: undefined,
-            onTaskCompletion: undefined,
-            runImmediately: false,
-        },
-    ) {
+                redis: undefined,
+                onTaskCompletion: undefined,
+                runImmediately: false,
+            },
+    ): Clujo<TTaskDependencies, TTaskContext> {
         if (this._hasStarted) {
             throw new Error("Cannot start a Clujo that has already started.");
         }
