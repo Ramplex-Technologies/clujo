@@ -40,6 +40,32 @@ import type { TaskGraphRunner } from "./task-graph";
  *
  * @template TTaskDependencies - Type of the dependencies each task will receive
  * @template TTaskContext - Type of the context each task will receive
+
+ * @param input The input to the Clujo constructor.
+ * @param input.id The unique identifier for the Clujo instance.
+ * @param input.taskGraphRunner The task graph runner to use for executing the task graph.
+ * @param input.cron The cron schedule for the Clujo instance.
+ * @param input.cron.pattern The cron pattern to use for scheduling the task graph. If a Date object is provided, the task graph will execute once at
+ *   the specified time.
+ * @param input.cron.options Optional options to use when creating the cron job.
+ * @param input.redis The redis settings for distributed locking
+ * @param input.redis.client The IORedis client instance
+ * @param input.redis.lockOptions The redis-semaphore lock options for lock acquisition
+ * @param input.runImmediately If `true`, executes the task graph immediately on start, independent of the cron schedule
+ *
+ * @throw An error if the Clujo ID, task graph runner, or cron pattern is not provided.
+ *
+ * @example
+ * const clujo = new Clujo({
+ *   id: 'my-clujo-instance',
+ *   taskGraphRunner: myTaskGraphRunner,
+ *   cron: {
+ *     pattern: '0 0 * * *', // Run daily at midnight
+ *     options: { timezone: 'America/New_York' }
+ *   },
+ *   runImmediately: false,
+ *   redis: { client: myRedisClient }
+ * });
  */
 export class Clujo<
     TTaskDependencies extends Record<string, unknown> = Record<string, unknown>,
@@ -55,28 +81,6 @@ export class Clujo<
     #hasStarted = false;
     #runImmediately = false;
 
-    /**
-     *
-     * @param input The input to the Clujo constructor.
-     * @param input.id The unique identifier for the Clujo instance.
-     * @param input.taskGraphRunner The task graph runner to use for executing the task graph.
-     * @param input.cron The cron schedule for the Clujo instance.
-     * @param input.cron.pattern The cron pattern to use for scheduling the task graph. If a Date object is provided, the task graph will execute once at
-     *   the specified time.
-     * @param input.cron.options Optional options to use when creating the cron job.
-     *
-     * @throw An error if the Clujo ID, task graph runner, or cron pattern is not provided.
-     *
-     * @example
-     * const clujo = new Clujo({
-     *   id: 'my-clujo-instance',
-     *   taskGraphRunner: new TaskGraphRunner(...),
-     *   cron: {
-     *     pattern: '0 0 * * *', // Run daily at midnight
-     *     options: { timezone: 'America/New_York' }
-     *   }
-     * });
-     */
     constructor({
         id,
         taskGraphRunner,

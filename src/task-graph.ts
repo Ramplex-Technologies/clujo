@@ -163,25 +163,26 @@ export class TaskGraph<
     /**
      * Builds and returns a TaskGraphRunner instance.
      * This method finalizes the task graph and prepares it for execution by topologically sorting the tasks.
-     *
+     * @param options The configuration options for the build
+     * @param options.onTasksCompleted A (sync or async) function to invoke when all tasks have completed
      * @returns A new `TaskGraphRunner` instance ready to execute the task graph.
      *
      * @throws {Error} If no tasks have been added to the graph.
      */
     build(
         {
-            onTaskCompletion,
+            onTasksCompleted,
         }: {
-            onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
+            onTasksCompleted?: (ctx: DeepReadonly<TTaskContext>) => void | Promise<void>;
         } = {
-            onTaskCompletion: undefined,
+            onTasksCompleted: undefined,
         },
     ): TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext> {
         if (!this.size) {
             throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
         }
-        if (onTaskCompletion && typeof onTaskCompletion !== "function") {
-            throw new Error("onTaskCompletion must be a function (sync or async).");
+        if (onTasksCompleted && typeof onTasksCompleted !== "function") {
+            throw new Error("onTasksCompleted must be a function (sync or async).");
         }
         this.#topologicalSort();
         return new TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext>(
@@ -189,7 +190,7 @@ export class TaskGraph<
             this.#contextValueOrFactory,
             this.#topologicalOrder,
             this.#tasks,
-            onTaskCompletion,
+            onTasksCompleted,
         );
     }
 
@@ -266,7 +267,7 @@ export class TaskGraphRunner<
         | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>);
     readonly #topologicalOrder: string[];
     readonly #tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>;
-    readonly #onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
+    readonly #onTasksCompleted?: (ctx: TTaskContext) => void | Promise<void>;
 
     constructor(
         dependencies: TTaskDependencies,
@@ -278,13 +279,13 @@ export class TaskGraphRunner<
               ) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>),
         topologicalOrder: string[],
         tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>,
-        onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>,
+        onTasksCompleted?: (ctx: TTaskContext) => void | Promise<void>,
     ) {
         this.#dependencies = dependencies;
         this.#contextValueOrFactory = contextValueOrFactory;
         this.#topologicalOrder = topologicalOrder;
         this.#tasks = tasks;
-        this.#onTaskCompletion = onTaskCompletion;
+        this.#onTasksCompleted = onTasksCompleted;
     }
 
     /**
@@ -373,8 +374,8 @@ export class TaskGraphRunner<
             }
         }
 
-        if (this.#onTaskCompletion) {
-            await this.#onTaskCompletion(this.#context.value);
+        if (this.#onTasksCompleted) {
+            await this.#onTasksCompleted(this.#context.value);
         }
 
         return this.#context.value;
