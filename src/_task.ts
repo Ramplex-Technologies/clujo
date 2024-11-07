@@ -111,7 +111,7 @@ export class Task<
      *
      * @param taskId - The ID of the task to add as a dependency
      */
-    public addDependency(taskId: string): void {
+    addDependency(taskId: string): void {
         if (taskId === this.options.id) {
             throw new Error("A task cannot depend on itself");
         }
@@ -123,7 +123,7 @@ export class Task<
      *
      * @returns An array of task IDs representing the dependencies
      */
-    public get dependencies(): string[] {
+    get dependencies(): string[] {
         return this._dependencies;
     }
 
@@ -132,7 +132,7 @@ export class Task<
      *
      * @returns The task ID
      */
-    public get id(): string {
+    get id(): string {
         return this.options.id;
     }
 
@@ -146,7 +146,7 @@ export class Task<
      * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
      * @throws {Error} If the task execution fails after all retry attempts
      */
-    public async run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn> {
+    async run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn> {
         // we retry maxRetries times on top of the initial attempt
         for (let attempt = 0; attempt < this._retryPolicy.maxRetries + 1; attempt++) {
             try {
@@ -185,7 +185,7 @@ export class Task<
      *
      * @returns The current status of the task
      */
-    public get status(): TaskStatus {
+    get status(): TaskStatus {
         return this._status;
     }
 

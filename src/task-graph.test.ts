@@ -86,7 +86,7 @@ test("TaskGraph", async (t) => {
         };
 
         // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-        assert.throws(() => taskGraph.addTask(task as any), /A task cannot depend on itself/);
+        assert.throws(() => taskGraph.addTask(task as any), /Task task1 cannot depend on itself/);
     });
 
     await t.test("validate retry policy throws when maxRetries is invalid", async () => {

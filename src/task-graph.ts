@@ -100,7 +100,7 @@ export class TaskGraph<
      * @throws {Error} If a task with the same ID already exists.
      * @throws {Error} If a specified dependency task has not been added to the graph yet.
      */
-    public addTask<TTaskId extends string, TTaskDependencyIds extends TAllDependencyIds, TTaskReturn>(
+    addTask<TTaskId extends string, TTaskDependencyIds extends TAllDependencyIds, TTaskReturn>(
         options: TaskOptions<TTaskId, TTaskDependencies, TTaskContext, TTaskReturn, TTaskDependencyIds>,
     ): TaskGraph<
         TTaskDependencies,
@@ -117,6 +117,9 @@ export class TaskGraph<
         for (const depId of options.dependencies ?? []) {
             if (typeof depId !== "string") {
                 throw new Error("Dependency ID must be a string");
+            }
+            if ((depId as string) === taskId) {
+                throw new Error(`Task ${taskId} cannot depend on itself`);
             }
             const dependentTask = this.#tasks.get(depId);
             if (!dependentTask) {
@@ -145,7 +148,7 @@ export class TaskGraph<
      *
      * @throws {Error} If no tasks have been added to the graph.
      */
-    public build(
+    build(
         {
             onTaskCompletion,
         }: {

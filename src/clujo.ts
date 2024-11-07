@@ -120,7 +120,7 @@ export class Clujo<
      * Starts the cron job, which will execute the task graph according to the cron schedule.
      * @throws An error if the Clujo has already started.
      */
-    public start(): Clujo<TTaskDependencies, TTaskContext> {
+    start(): void {
         if (this.#hasStarted) {
             throw new Error("Cannot start a Clujo that has already started.");
         }
@@ -146,7 +146,6 @@ export class Clujo<
         if (this.#runImmediately) {
             this.#cron.trigger();
         }
-        return this;
     }
 
     /**
@@ -157,7 +156,7 @@ export class Clujo<
      * @returns A promise that resolves when the cron has stopped.
      * @throws An error if the Clujo has not started.
      */
-    public async stop(timeout = 5000): Promise<void> {
+    async stop(timeout = 5000): Promise<void> {
         if (!this.#hasStarted) {
             throw new Error("Cannot stop a Clujo that has not started.");
         }
@@ -170,7 +169,7 @@ export class Clujo<
      *
      * @returns The final context of the task graph.
      */
-    public async trigger(): Promise<TTaskContext> {
+    async trigger(): Promise<TTaskContext> {
         // we do not trigger via the cron here so that we can make use of the result of the task graph
         return await this.#taskGraphRunner.run();
     }

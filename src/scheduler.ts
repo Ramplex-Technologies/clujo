@@ -40,8 +40,8 @@ export class Scheduler {
      */
 
     // biome-ignore lint/suspicious/noExplicitAny: handle any Clujo
-    public addJob(job: Clujo<any, any>) {
-        if (this.#jobs.some((_job) => _job.id === job.id)) {
+    addJob(job: Clujo<any, any>) {
+        if (this.#jobs.some((addedJob) => addedJob.id === job.id)) {
             throw new Error(`Job with id ${job.id} is already added to the scheduler.`);
         }
         this.#jobs.push(job);
@@ -52,7 +52,7 @@ export class Scheduler {
      *
      * @param redis - Optional Redis instance to be passed to the jobs. If provided, enables distributed locking.
      */
-    public start() {
+    start() {
         for (const job of this.#jobs) {
             job.start();
         }
@@ -63,7 +63,7 @@ export class Scheduler {
      * @param timeout - The maximum time (in milliseconds) to wait for jobs to stop. Defaults to 5000ms.
      * @returns A promise that resolves when all jobs have stopped or the timeout is reached.
      */
-    public async stop(timeout = 5000) {
+    async stop(timeout = 5000) {
         await Promise.all(this.#jobs.map((job) => job.stop(timeout)));
     }
 
