@@ -27,19 +27,19 @@
  * Used to allow for the sharing of state between tasks.
  */
 export class Context<TInitial, TContext> {
-    private object!: { initial: TInitial | undefined } & TContext;
-    private updateQueue: Promise<void>;
+    #object!: { initial: TInitial | undefined } & TContext;
+    #updateQueue: Promise<void>;
 
     constructor(initialValue?: TInitial) {
         this.reset(initialValue);
-        this.updateQueue = Promise.resolve();
+        this.#updateQueue = Promise.resolve();
     }
 
     /**
      * Gets the current state of the managed object.
      */
     get value(): { initial: TInitial | undefined } & TContext {
-        return this.object;
+        return this.#object;
     }
 
     /**
@@ -47,11 +47,11 @@ export class Context<TInitial, TContext> {
      */
     reset(initialValue: TInitial | undefined): void {
         if (initialValue !== undefined && initialValue !== null) {
-            this.object = deepFreeze({ initial: initialValue }) as {
+            this.#object = deepFreeze({ initial: initialValue }) as {
                 initial: TInitial;
             } & TContext;
         } else {
-            this.object = deepFreeze({ initial: undefined }) as {
+            this.#object = deepFreeze({ initial: undefined }) as {
                 initial: TInitial | undefined;
             } & TContext;
         }
@@ -61,14 +61,14 @@ export class Context<TInitial, TContext> {
      * Asynchronously updates the context with new values. Ensures that updates are applied in the order they are called.
      */
     update<NewValue extends object>(updateValue: NewValue): Promise<void> {
-        this.updateQueue = this.updateQueue.then(() => {
+        this.#updateQueue = this.#updateQueue.then(() => {
             // overrides won't happen with how this is used since
             // the initial context is under the key "initial"
             // and all task results are under the unique id of that task
-            this.object = deepFreeze({ ...this.object, ...updateValue });
+            this.#object = deepFreeze({ ...this.#object, ...updateValue });
             return Promise.resolve();
         });
-        return this.updateQueue;
+        return this.#updateQueue;
     }
 }
 

@@ -130,7 +130,7 @@ export class Clujo<
                 if (!this.#redis) {
                     await this.#taskGraphRunner.run();
                 } else {
-                    await using lock = await this._tryAcquire(this.#redis.client, this.#redis.lockOptions);
+                    await using lock = await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions);
                     if (lock) {
                         await this.#taskGraphRunner.run();
                     }
@@ -182,10 +182,7 @@ export class Clujo<
      *
      * @returns An AsyncDisposable lock if it was acquired, otherwise null.
      */
-    private async _tryAcquire(
-        redis: Redis,
-        lockOptions: LockOptions | undefined,
-    ): Promise<AsyncDisposableMutex | null> {
+    async #tryAcquire(redis: Redis, lockOptions: LockOptions | undefined): Promise<AsyncDisposableMutex | null> {
         const mutex = new Mutex(redis, this.#id, lockOptions);
         const lock = await mutex.tryAcquire();
         if (!lock) {

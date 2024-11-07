@@ -94,16 +94,18 @@ export class Task<
     TTaskContext extends Record<string, unknown> & { initial: unknown },
     TTaskReturn,
 > {
-    private readonly _dependencies: string[] = [];
+    readonly #dependencies: string[] = [];
+    readonly #options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, string>;
 
-    private _retryPolicy: RetryPolicy = { maxRetries: 0, retryDelayMs: 0 };
-    private _status: TaskStatus = "pending";
+    #retryPolicy: RetryPolicy = { maxRetries: 0, retryDelayMs: 0 };
+    #status: TaskStatus = "pending";
 
-    constructor(private readonly options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, string>) {
+    constructor(options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, string>) {
         if (options.retryPolicy) {
-            this._validateRetryPolicy(options.retryPolicy);
-            this._retryPolicy = options.retryPolicy;
+            this.#validateRetryPolicy(options.retryPolicy);
+            this.#retryPolicy = options.retryPolicy;
         }
+        this.#options = options;
     }
 
     /**
@@ -112,10 +114,10 @@ export class Task<
      * @param taskId - The ID of the task to add as a dependency
      */
     addDependency(taskId: string): void {
-        if (taskId === this.options.id) {
+        if (taskId === this.#options.id) {
             throw new Error("A task cannot depend on itself");
         }
-        this._dependencies.push(taskId);
+        this.#dependencies.push(taskId);
     }
 
     /**
@@ -124,7 +126,7 @@ export class Task<
      * @returns An array of task IDs representing the dependencies
      */
     get dependencies(): string[] {
-        return this._dependencies;
+        return this.#dependencies;
     }
 
     /**
@@ -133,7 +135,7 @@ export class Task<
      * @returns The task ID
      */
     get id(): string {
-        return this.options.id;
+        return this.#options.id;
     }
 
     /**
@@ -148,30 +150,30 @@ export class Task<
      */
     async run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn> {
         // we retry maxRetries times on top of the initial attempt
-        for (let attempt = 0; attempt < this._retryPolicy.maxRetries + 1; attempt++) {
+        for (let attempt = 0; attempt < this.#retryPolicy.maxRetries + 1; attempt++) {
             try {
-                this._status = "running";
-                const result = await this.options.execute({ deps, ctx });
-                this._status = "completed";
+                this.#status = "running";
+                const result = await this.#options.execute({ deps, ctx });
+                this.#status = "completed";
                 return result;
             } catch (err) {
-                if (attempt === this._retryPolicy.maxRetries) {
+                if (attempt === this.#retryPolicy.maxRetries) {
                     console.error(`Task failed after ${attempt + 1} attempts: ${err}`);
                     const error = err instanceof Error ? err : new Error(`Non error throw: ${String(err)}`);
                     try {
-                        if (this.options.errorHandler) {
-                            await this.options.errorHandler(error, { deps, ctx });
+                        if (this.#options.errorHandler) {
+                            await this.#options.errorHandler(error, { deps, ctx });
                         } else {
-                            console.error(`Error in task ${this.options.id}: ${err}`);
+                            console.error(`Error in task ${this.#options.id}: ${err}`);
                         }
                     } catch (error) {
-                        console.error(`Error in task error handler for ${this.options.id}: ${error}`);
+                        console.error(`Error in task error handler for ${this.#options.id}: ${error}`);
                     }
-                    this._status = "failed";
+                    this.#status = "failed";
                     throw error;
                 }
-                console.error(`Task failed, retrying (attempt ${attempt + 1}/${this._retryPolicy.maxRetries}): ${err}`);
-                await sleep(this._retryPolicy.retryDelayMs);
+                console.error(`Task failed, retrying (attempt ${attempt + 1}/${this.#retryPolicy.maxRetries}): ${err}`);
+                await sleep(this.#retryPolicy.retryDelayMs);
             }
         }
 
@@ -186,10 +188,10 @@ export class Task<
      * @returns The current status of the task
      */
     get status(): TaskStatus {
-        return this._status;
+        return this.#status;
     }
 
-    private _validateRetryPolicy(retryPolicy: RetryPolicy) {
+    #validateRetryPolicy(retryPolicy: RetryPolicy) {
         const { maxRetries, retryDelayMs } = retryPolicy;
         if (typeof maxRetries !== "number" || maxRetries < 0 || !Number.isInteger(maxRetries)) {
             throw new Error("maxRetries must be a non-negative integer");
