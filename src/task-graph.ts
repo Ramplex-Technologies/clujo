@@ -26,6 +26,10 @@
 import { Context } from "./_context";
 import { Task, type TaskOptions } from "./_task";
 
+type DeepReadonly<T> = {
+    readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
+};
+
 /**
  * Represents a task graph which tasks can be added to
  * When built, the graph will be sorted topologically and returned as a `TaskGraphRunner` instance.
@@ -38,18 +42,18 @@ import { Task, type TaskOptions } from "./_task";
 export class TaskGraph<
     TTaskDependencies extends Record<string, unknown> = never,
     TInitialTaskContext = undefined,
-    TTaskContext extends Record<string, unknown> & { readonly initial: TInitialTaskContext } = {
-        readonly initial: TInitialTaskContext;
+    TTaskContext extends Record<string, unknown> & { readonly initial: DeepReadonly<TInitialTaskContext> } = {
+        readonly initial: DeepReadonly<TInitialTaskContext>;
     },
     TAllDependencyIds extends string & keyof TTaskContext = never,
 > {
-    private readonly _contextValueOrFactory:
+    readonly #contextValueOrFactory:
         | TInitialTaskContext
-        | ((deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>)
+        | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>)
         | undefined;
-    private readonly _dependencies: TTaskDependencies = Object.create(null);
-    private readonly _tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown>>();
-    private readonly _topologicalOrder: string[] = [];
+    readonly #dependencies: TTaskDependencies = Object.create(null);
+    readonly #tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown>>();
+    readonly #topologicalOrder: string[] = [];
 
     constructor(
         options?:
@@ -67,13 +71,13 @@ export class TaskGraph<
                 if (typeof options.dependencies !== "object" || options.dependencies === null) {
                     throw new Error("Dependencies must be a non-null object");
                 }
-                this._dependencies = options.dependencies;
+                this.#dependencies = options.dependencies;
             }
 
             if ("contextValue" in options) {
-                this._contextValueOrFactory = options.contextValue;
+                this.#contextValueOrFactory = options.contextValue;
             } else if ("contextFactory" in options) {
-                this._contextValueOrFactory = options.contextFactory;
+                this.#contextValueOrFactory = options.contextFactory;
             }
         }
     }
@@ -105,23 +109,23 @@ export class TaskGraph<
         TAllDependencyIds | TTaskId
     > {
         const taskId = options.id;
-        if (this._tasks.has(taskId)) {
+        if (this.#tasks.has(taskId)) {
             throw new Error(`Task with id ${taskId} already exists`);
         }
-        const task = new Task<TTaskDependencies, TTaskContext, TTaskReturn>(options);
-        this._tasks.set(taskId, task);
 
+        const task = new Task(options);
         for (const depId of options.dependencies ?? []) {
             if (typeof depId !== "string") {
                 throw new Error("Dependency ID must be a string");
             }
-            const dependentTask = this._tasks.get(depId);
+            const dependentTask = this.#tasks.get(depId);
             if (!dependentTask) {
                 throw new Error(`Dependency ${depId} not found for task ${taskId}`);
             }
             task.addDependency(depId);
         }
 
+        this.#tasks.set(taskId, task);
         return this as unknown as TaskGraph<
             TTaskDependencies,
             TInitialTaskContext,
@@ -156,12 +160,12 @@ export class TaskGraph<
         if (onTaskCompletion && typeof onTaskCompletion !== "function") {
             throw new Error("onTaskCompletion must be a function (sync or async).");
         }
-        this._topologicalSort();
+        this.#topologicalSort();
         return new TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext>(
-            this._dependencies,
-            this._contextValueOrFactory,
-            this._topologicalOrder,
-            this._tasks,
+            this.#dependencies,
+            this.#contextValueOrFactory,
+            this.#topologicalOrder,
+            this.#tasks,
             onTaskCompletion,
         );
     }
@@ -169,14 +173,14 @@ export class TaskGraph<
     /**
      * Returns the number of tasks in the graph.
      */
-    public get size(): number {
-        return this._tasks.size;
+    get size(): number {
+        return this.#tasks.size;
     }
 
     /**
      * Topologically sorts the tasks in the graph, placing the sorted order in the `_topologicalOrder` array.
      */
-    private _topologicalSort() {
+    #topologicalSort() {
         const visited = new Set<string>();
         const temp = new Set<string>();
 
@@ -186,7 +190,7 @@ export class TaskGraph<
             }
             if (!visited.has(taskId)) {
                 temp.add(taskId);
-                const task = this._tasks.get(taskId);
+                const task = this.#tasks.get(taskId);
                 if (!task) {
                     throw new Error(`Task ${taskId} not found`);
                 }
@@ -195,11 +199,11 @@ export class TaskGraph<
                 }
                 temp.delete(taskId);
                 visited.add(taskId);
-                this._topologicalOrder.push(taskId);
+                this.#topologicalOrder.push(taskId);
             }
         };
 
-        for (const taskId of this._tasks.keys()) {
+        for (const taskId of this.#tasks.keys()) {
             if (!visited.has(taskId)) {
                 visit(taskId);
             }
@@ -221,18 +225,34 @@ export class TaskGraphRunner<
     TInitialTaskContext,
     TTaskContext extends Record<string, unknown> & { initial: unknown },
 > {
-    private readonly context = new Context<TInitialTaskContext, TTaskContext>();
+    readonly #context = new Context<TInitialTaskContext, TTaskContext>();
+    readonly #dependencies: TTaskDependencies;
+    readonly #contextValueOrFactory:
+        | undefined
+        | TInitialTaskContext
+        | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>);
+    readonly #topologicalOrder: string[];
+    readonly #tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>;
+    readonly #onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
 
     constructor(
-        private _dependencies: TTaskDependencies,
-        private _contextValueOrFactory:
+        dependencies: TTaskDependencies,
+        contextValueOrFactory:
             | undefined
             | TInitialTaskContext
-            | ((deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>),
-        private readonly _topologicalOrder: string[],
-        private readonly _tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>,
-        private readonly _onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>,
-    ) {}
+            | ((
+                  deps: TTaskDependencies,
+              ) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>),
+        topologicalOrder: string[],
+        tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>,
+        onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>,
+    ) {
+        this.#dependencies = dependencies;
+        this.#contextValueOrFactory = contextValueOrFactory;
+        this.#topologicalOrder = topologicalOrder;
+        this.#tasks = tasks;
+        this.#onTaskCompletion = onTaskCompletion;
+    }
 
     /**
      * Runs the tasks in the graph in topological order.
@@ -242,28 +262,28 @@ export class TaskGraphRunner<
      * @returns A promise that resolves to the completed context object when all tasks have completed.
      */
     async run(): Promise<TTaskContext> {
-        if (this._topologicalOrder.length === 0) {
+        if (this.#topologicalOrder.length === 0) {
             throw new Error("No tasks to run. Did you forget to call topologicalSort?");
         }
 
         let value: TInitialTaskContext | undefined;
-        if (this._contextValueOrFactory) {
+        if (this.#contextValueOrFactory) {
             value =
-                typeof this._contextValueOrFactory === "function"
+                typeof this.#contextValueOrFactory === "function"
                     ? await (
-                          this._contextValueOrFactory as (
+                          this.#contextValueOrFactory as (
                               deps: TTaskDependencies,
                           ) => TInitialTaskContext | Promise<TInitialTaskContext>
-                      )(this._dependencies)
-                    : this._contextValueOrFactory;
+                      )(this.#dependencies)
+                    : this.#contextValueOrFactory;
         }
-        this.context.reset(value);
+        this.#context.reset(value);
 
         const completed = new Set<string>();
         const running = new Map<string, Promise<void>>();
         const readyTasks = new Set<string>(
-            this._topologicalOrder.filter((taskId) => {
-                const task = this._tasks.get(taskId);
+            this.#topologicalOrder.filter((taskId) => {
+                const task = this.#tasks.get(taskId);
                 if (!task) {
                     throw new Error(`Task ${taskId} not found`);
                 }
@@ -272,14 +292,14 @@ export class TaskGraphRunner<
         );
 
         const runTask = async (taskId: string) => {
-            const task = this._tasks.get(taskId);
+            const task = this.#tasks.get(taskId);
             if (!task) {
                 throw new Error(`Task ${taskId} not found`);
             }
 
             try {
-                const result = await task.run(this._dependencies, this.context.value);
-                await this.context.update({ [taskId]: result });
+                const result = await task.run(this.#dependencies, this.#context.value);
+                await this.#context.update({ [taskId]: result });
                 completed.add(taskId);
             } catch {
                 // completed in the sense that we won't try to run it again
@@ -288,10 +308,10 @@ export class TaskGraphRunner<
                 running.delete(taskId);
 
                 // Check if any dependent tasks are now ready to run
-                for (const [id, t] of this._tasks) {
+                for (const [id, t] of this.#tasks) {
                     if (!completed.has(id) && !running.has(id)) {
                         const canRun = t.dependencies.every((depId) => {
-                            const depTask = this._tasks.get(depId);
+                            const depTask = this.#tasks.get(depId);
                             return depTask && completed.has(depId) && depTask.status === "completed";
                         });
                         if (canRun) {
@@ -302,7 +322,7 @@ export class TaskGraphRunner<
             }
         };
 
-        while (completed.size < this._tasks.size) {
+        while (completed.size < this.#tasks.size) {
             // Start all ready tasks
             for (const taskId of readyTasks) {
                 readyTasks.delete(taskId);
@@ -320,10 +340,10 @@ export class TaskGraphRunner<
             }
         }
 
-        if (this._onTaskCompletion) {
-            await this._onTaskCompletion(this.context.value);
+        if (this.#onTaskCompletion) {
+            await this.#onTaskCompletion(this.#context.value);
         }
 
-        return this.context.value;
+        return this.#context.value;
     }
 }

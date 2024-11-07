@@ -78,19 +78,15 @@ test("TaskGraph", async (t) => {
     });
 
     await t.test("addTask with self dependency throws", async () => {
-        const taskGraph = new TaskGraph() as unknown as TaskGraph<
-            Record<string, unknown>,
-            unknown,
-            { initial: unknown; task1: unknown },
-            "task1"
-        >;
+        const taskGraph = new TaskGraph();
         const task: TaskOptions<"task1", Record<string, unknown>, { initial: unknown }, Promise<string>, "task1"> = {
             id: "task1",
             execute: () => Promise.resolve("result1"),
             dependencies: ["task1"],
         };
 
-        assert.throws(() => taskGraph.addTask(task), /A task cannot depend on itself/);
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+        assert.throws(() => taskGraph.addTask(task as any), /A task cannot depend on itself/);
     });
 
     await t.test("validate retry policy throws when maxRetries is invalid", async () => {
