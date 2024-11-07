@@ -38,7 +38,9 @@ import { Task, type TaskOptions } from "./_task";
 export class TaskGraph<
     TTaskDependencies extends Record<string, unknown> = never,
     TInitialTaskContext = undefined,
-    TTaskContext extends Record<string, unknown> & { initial: TInitialTaskContext } = { initial: TInitialTaskContext },
+    TTaskContext extends Record<string, unknown> & { readonly initial: TInitialTaskContext } = {
+        readonly initial: TInitialTaskContext;
+    },
     TAllDependencyIds extends string & keyof TTaskContext = never,
 > {
     private readonly _contextValueOrFactory:
@@ -99,7 +101,7 @@ export class TaskGraph<
     ): TaskGraph<
         TTaskDependencies,
         TInitialTaskContext,
-        TTaskContext & Partial<{ [K in TTaskId]: TTaskReturn }>,
+        TTaskContext & Partial<{ readonly [K in TTaskId]: TTaskReturn }>,
         TAllDependencyIds | TTaskId
     > {
         const taskId = options.id;
