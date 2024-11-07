@@ -1,9 +1,5 @@
 /* --------------------------------------------------------------------------
 
-  ioredis - MIT License - Zihua Li
-
-  ---------------------------------------------------------------------------
-
   MIT License
 
   Copyright (c) 2024 Rami Pellumbi
@@ -27,7 +23,6 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import type { Redis } from "ioredis";
 import type { Clujo } from "./clujo";
 
 /**
@@ -35,8 +30,7 @@ import type { Clujo } from "./clujo";
  * This class allows adding, starting, and stopping multiple Clujo jobs in a centralized manner.
  */
 export class Scheduler {
-    // biome-ignore lint/suspicious/noExplicitAny: handle any combination of clujo's
-    private readonly jobs: { job: Clujo<any, any>; completionHandler?: (ctx: any) => Promise<void> | void }[] = [];
+    readonly #jobs: Clujo[] = [];
 
     /**
      * Adds a Clujo job to the scheduler.
@@ -44,17 +38,13 @@ export class Scheduler {
      * @param input.job - The Clujo job to be added.
      * @param input.completionHandler - Optional function to invoke after the job completes.
      */
-    public addJob<
-        TDependencies extends Record<string, unknown>,
-        TContext extends Record<string, unknown> & { initial: unknown },
-    >(input: {
-        job: Clujo<TDependencies, TContext>;
-        completionHandler?: (ctx: Required<TContext>) => Promise<void> | void;
-    }) {
-        if (this.jobs.some(({ job }) => job.id === input.job.id)) {
-            throw new Error(`Job with id ${input.job.id} is already added to the scheduler.`);
+
+    // biome-ignore lint/suspicious/noExplicitAny: handle any Clujo
+    public addJob(job: Clujo<any, any>) {
+        if (this.#jobs.some((_job) => _job.id === job.id)) {
+            throw new Error(`Job with id ${job.id} is already added to the scheduler.`);
         }
-        this.jobs.push(input);
+        this.#jobs.push(job);
     }
 
     /**
@@ -62,16 +52,9 @@ export class Scheduler {
      *
      * @param redis - Optional Redis instance to be passed to the jobs. If provided, enables distributed locking.
      */
-    public start(redis?: Redis) {
-        for (const { job, completionHandler } of this.jobs) {
-            const options: Record<string, unknown> = {};
-            if (redis) {
-                options.redis = { client: redis };
-            }
-            if (completionHandler) {
-                options.onTaskCompletion = completionHandler;
-            }
-            job.start(options);
+    public start() {
+        for (const job of this.#jobs) {
+            job.start();
         }
     }
     /**
@@ -81,6 +64,13 @@ export class Scheduler {
      * @returns A promise that resolves when all jobs have stopped or the timeout is reached.
      */
     public async stop(timeout = 5000) {
-        await Promise.all(this.jobs.map(({ job }) => job.stop(timeout)));
+        await Promise.all(this.#jobs.map((job) => job.stop(timeout)));
+    }
+
+    /**
+     * Returns the list of jobs added to the scheduler.
+     */
+    get jobs() {
+        return this.#jobs;
     }
 }

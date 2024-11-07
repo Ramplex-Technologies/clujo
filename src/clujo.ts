@@ -42,17 +42,18 @@ import type { TaskGraphRunner } from "./task-graph";
  * @template TTaskContext - Type of the context each task will receive
  */
 export class Clujo<
-    TTaskDependencies extends Record<string, unknown>,
+    TTaskDependencies extends Record<string, unknown> = Record<string, unknown>,
     TTaskContext extends Record<string, unknown> & {
         initial: unknown;
-    },
+    } = Record<string, unknown> & { initial: unknown },
 > {
-    public readonly id: string;
+    readonly #id: string;
+    readonly #cron: Cron;
+    readonly #taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
+    readonly #redis?: { client: Redis; lockOptions?: LockOptions };
 
-    private readonly _cron: Cron;
-    private readonly _taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
-
-    private _hasStarted = false;
+    #hasStarted = false;
+    #runImmediately = false;
 
     /**
      *
@@ -80,10 +81,14 @@ export class Clujo<
         id,
         taskGraphRunner,
         cron,
+        runImmediately,
+        redis,
     }: {
         id: string;
         taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
         cron: { pattern: string | Date; options?: CronOptions };
+        runImmediately?: boolean;
+        redis?: { client: Redis; lockOptions?: LockOptions };
     }) {
         if (!id) {
             throw new Error("Clujo ID is required.");
@@ -94,78 +99,52 @@ export class Clujo<
         if (!cron.pattern) {
             throw new Error("cron.pattern is required");
         }
-        this.id = id;
-        this._taskGraphRunner = taskGraphRunner;
-        this._cron = new Cron(cron.pattern, cron.options);
+        if (runImmediately && typeof runImmediately !== "boolean") {
+            throw new Error("runImmediately must be a boolean.");
+        }
+        if (redis && !redis.client) {
+            throw new Error("Redis client is required in redis input.");
+        }
+        this.#id = id;
+        this.#taskGraphRunner = taskGraphRunner;
+        this.#cron = new Cron(cron.pattern, cron.options);
+        this.#runImmediately = Boolean(runImmediately);
+        this.#redis = redis;
+    }
+
+    get id(): string {
+        return this.#id;
     }
 
     /**
      * Starts the cron job, which will execute the task graph according to the cron schedule.
-     * If a redis client instance is provided, a lock will be acquired before executing the task graph, preventing overlapping executions.
-     *
-     * @param redis The Redis client to use for locking.
-     * @param onTaskCompletion An optional function to execute after the task graph has completed.
-     * @param runImmediately An optional boolean which, if set to true, executes the task graph immediately upon starting.
-     *    The overlap behavior here depends on if a lock is used (never any overlap), or if `preventOverlap` was disabled (
-     *    in which case there is overlap between multiple instances of the same Clujo).
-     * @returns The Clujo instance.
      * @throws An error if the Clujo has already started.
      */
-    public start(
-        {
-            redis,
-            onTaskCompletion,
-            runImmediately,
-        }: {
-            redis?: { client: Redis; lockOptions?: LockOptions };
-            onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
-            runImmediately?: boolean;
-        } = {
-            redis: undefined,
-            onTaskCompletion: undefined,
-            runImmediately: false,
-        },
-    ): Clujo<TTaskDependencies, TTaskContext> {
-        if (this._hasStarted) {
+    public start(): Clujo<TTaskDependencies, TTaskContext> {
+        if (this.#hasStarted) {
             throw new Error("Cannot start a Clujo that has already started.");
         }
-        if (redis && !redis.client) {
-            throw new Error("Redis client is required.");
-        }
-        if (onTaskCompletion && typeof onTaskCompletion !== "function") {
-            throw new Error("onTaskCompletion must be a function (sync or async).");
-        }
-        if (runImmediately && typeof runImmediately !== "boolean") {
-            throw new Error("runImmediately must be a boolean.");
-        }
-
-        const executeTasksAndCompletionHandler = async () => {
-            const finalContext = await this._taskGraphRunner.run();
-            if (onTaskCompletion) {
-                await onTaskCompletion(finalContext);
-            }
-        };
 
         const handler = async () => {
             try {
-                if (!redis) {
-                    await executeTasksAndCompletionHandler();
+                if (!this.#redis) {
+                    await this.#taskGraphRunner.run();
                 } else {
-                    await using lock = await this._tryAcquire(redis.client, redis.lockOptions);
+                    await using lock = await this._tryAcquire(this.#redis.client, this.#redis.lockOptions);
                     if (lock) {
-                        await executeTasksAndCompletionHandler();
+                        await this.#taskGraphRunner.run();
                     }
                 }
             } catch (error) {
-                console.error(`Clujo ${this.id} failed: ${error}`);
+                console.error(`Clujo ${this.#id} failed: ${error}`);
             }
         };
-        this._cron.start(handler);
-        this._hasStarted = true;
+        this.#cron.start(handler);
+        this.#hasStarted = true;
         // we use the cron trigger here so that prevent overlapping is active by default
         // i.e., if no lock is used, and the trigger is executing, and the schedule time is reached, the scheduled execution will be skipped
-        if (runImmediately) {
-            this._cron.trigger();
+        if (this.#runImmediately) {
+            this.#cron.trigger();
         }
         return this;
     }
@@ -179,10 +158,10 @@ export class Clujo<
      * @throws An error if the Clujo has not started.
      */
     public async stop(timeout = 5000): Promise<void> {
-        if (!this._hasStarted) {
+        if (!this.#hasStarted) {
             throw new Error("Cannot stop a Clujo that has not started.");
         }
-        await this._cron.stop(timeout);
+        await this.#cron.stop(timeout);
     }
 
     /**
@@ -193,7 +172,7 @@ export class Clujo<
      */
     public async trigger(): Promise<TTaskContext> {
         // we do not trigger via the cron here so that we can make use of the result of the task graph
-        return await this._taskGraphRunner.run();
+        return await this.#taskGraphRunner.run();
     }
 
     /**
@@ -208,7 +187,7 @@ export class Clujo<
         redis: Redis,
         lockOptions: LockOptions | undefined,
     ): Promise<AsyncDisposableMutex | null> {
-        const mutex = new Mutex(redis, this.id, lockOptions);
+        const mutex = new Mutex(redis, this.#id, lockOptions);
         const lock = await mutex.tryAcquire();
         if (!lock) {
             return null;
@@ -219,7 +198,7 @@ export class Clujo<
                 try {
                     await mutex.release();
                 } catch (error) {
-                    console.error(`Error releasing lock for Clujo ${this.id}: ${error}`);
+                    console.error(`Error releasing lock for Clujo ${this.#id}: ${error}`);
                 }
             },
         };

@@ -139,9 +139,20 @@ export class TaskGraph<
      *
      * @throws {Error} If no tasks have been added to the graph.
      */
-    public build(): TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext> {
+    public build(
+        {
+            onTaskCompletion,
+        }: {
+            onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>;
+        } = {
+            onTaskCompletion: undefined,
+        },
+    ): TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext> {
         if (!this.size) {
             throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
+        }
+        if (onTaskCompletion && typeof onTaskCompletion !== "function") {
+            throw new Error("onTaskCompletion must be a function (sync or async).");
         }
         this._topologicalSort();
         return new TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext>(
@@ -149,6 +160,7 @@ export class TaskGraph<
             this._contextValueOrFactory,
             this._topologicalOrder,
             this._tasks,
+            onTaskCompletion,
         );
     }
 
@@ -217,6 +229,7 @@ export class TaskGraphRunner<
             | ((deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>),
         private readonly _topologicalOrder: string[],
         private readonly _tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>,
+        private readonly _onTaskCompletion?: (ctx: TTaskContext) => void | Promise<void>,
     ) {}
 
     /**
@@ -303,6 +316,10 @@ export class TaskGraphRunner<
                 // happens when tasks could not run due to failed dependencies
                 break;
             }
+        }
+
+        if (this._onTaskCompletion) {
+            await this._onTaskCompletion(this.context.value);
         }
 
         return this.context.value;

@@ -37,12 +37,10 @@ describe("Scheduler Class", async () => {
             stop: mock.fn(() => Promise.resolve()),
         } as unknown as Clujo<Record<string, unknown>, { initial: unknown }>;
 
-        scheduler.addJob({ job: mockJob });
+        scheduler.addJob(mockJob);
 
-        // @ts-ignore: Accessing private property for testing
         assert.equal(scheduler.jobs.length, 1);
-        // @ts-ignore: Accessing private property for testing
-        assert.equal(scheduler.jobs[0].job, mockJob);
+        assert.equal(scheduler.jobs[0], mockJob);
     });
 
     test("addJob throws error when adding duplicate job", () => {
@@ -53,11 +51,11 @@ describe("Scheduler Class", async () => {
             stop: mock.fn(() => Promise.resolve()),
         } as unknown as Clujo<Record<string, unknown>, { initial: unknown }>;
 
-        scheduler.addJob({ job: mockJob });
+        scheduler.addJob(mockJob);
 
         assert.throws(
             () => {
-                scheduler.addJob({ job: mockJob });
+                scheduler.addJob(mockJob);
             },
             {
                 message: "Job with id job1 is already added to the scheduler.",
@@ -80,52 +78,13 @@ describe("Scheduler Class", async () => {
             // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
         } as any;
 
-        scheduler.addJob({ job: mockJob1 });
-        scheduler.addJob({ job: mockJob2 });
+        scheduler.addJob(mockJob1);
+        scheduler.addJob(mockJob2);
 
         scheduler.start();
 
         assert.equal(mockJob1.start.mock.calls.length, 1);
         assert.equal(mockJob2.start.mock.calls.length, 1);
-        assert.deepEqual(mockJob1.start.mock.calls[0].arguments[0], {});
-        assert.deepEqual(mockJob2.start.mock.calls[0].arguments[0], {});
-    });
-
-    test("start starts all jobs with Redis", () => {
-        const scheduler = new Scheduler();
-        const mockJob = {
-            id: "job1",
-            start: mock.fn(),
-            stop: mock.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
-        } as any;
-        const mockRedis = {};
-
-        scheduler.addJob({ job: mockJob });
-
-        // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
-        scheduler.start(mockRedis as any);
-
-        assert.equal(mockJob.start.mock.calls.length, 1);
-        assert.deepEqual(mockJob.start.mock.calls[0].arguments[0], { redis: { client: mockRedis } });
-    });
-
-    test("start invokes completion handler if provided", () => {
-        const scheduler = new Scheduler();
-        const mockJob = {
-            id: "job1",
-            start: mock.fn(),
-            stop: mock.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
-        } as any;
-        const mockCompletionHandler = mock.fn();
-
-        scheduler.addJob({ job: mockJob, completionHandler: mockCompletionHandler });
-
-        scheduler.start();
-
-        assert.equal(mockJob.start.mock.calls.length, 1);
-        assert.equal(typeof mockJob.start.mock.calls[0].arguments[0].onTaskCompletion, "function");
     });
 
     test("stop stops all jobs", async () => {
@@ -143,8 +102,8 @@ describe("Scheduler Class", async () => {
             // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
         } as any;
 
-        scheduler.addJob({ job: mockJob1 });
-        scheduler.addJob({ job: mockJob2 });
+        scheduler.addJob(mockJob1);
+        scheduler.addJob(mockJob2);
 
         await scheduler.stop();
 
@@ -163,7 +122,7 @@ describe("Scheduler Class", async () => {
             // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
         } as any;
 
-        scheduler.addJob({ job: mockJob });
+        scheduler.addJob(mockJob);
 
         await scheduler.stop(10000);
 
