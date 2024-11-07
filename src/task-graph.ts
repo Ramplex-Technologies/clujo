@@ -50,7 +50,7 @@ export class TaskGraph<
     readonly #contextValueOrFactory:
         | TInitialTaskContext
         | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>)
-        | undefined;
+        | undefined = undefined;
     readonly #dependencies: TTaskDependencies = Object.create(null);
     readonly #tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown>>();
     readonly #topologicalOrder: string[] = [];
@@ -66,19 +66,39 @@ export class TaskGraph<
                   contextFactory: (deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>;
               },
     ) {
-        if (options) {
-            if (options.dependencies !== undefined) {
-                if (typeof options.dependencies !== "object" || options.dependencies === null) {
-                    throw new Error("Dependencies must be a non-null object");
-                }
+        // Early return if no options provided
+        if (!options) {
+            return;
+        }
+
+        // Validate dependencies
+        if ("dependencies" in options) {
+            if (options.dependencies === undefined) {
+                this.#dependencies = Object.create(null);
+            } else if (!this.#isValidDependencies(options.dependencies)) {
+                throw new Error("Dependencies must be a non-null object with defined properties");
+            } else {
                 this.#dependencies = options.dependencies;
             }
+        }
 
-            if ("contextValue" in options) {
+        // Validate only one of the context options
+        if ("contextValue" in options && "contextFactory" in options) {
+            throw new Error("Cannot specify both contextValue and contextFactory");
+        }
+
+        if ("contextValue" in options) {
+            if (options.contextValue !== undefined) {
+                if (typeof options.contextValue === "function") {
+                    throw new Error("Context value must not be a function");
+                }
                 this.#contextValueOrFactory = options.contextValue;
-            } else if ("contextFactory" in options) {
-                this.#contextValueOrFactory = options.contextFactory;
             }
+        } else if ("contextFactory" in options) {
+            if (typeof options.contextFactory !== "function") {
+                throw new Error("Context factory must be a function that returns a value or Promise");
+            }
+            this.#contextValueOrFactory = options.contextFactory;
         }
     }
 
@@ -213,6 +233,16 @@ export class TaskGraph<
         }
         visited.clear();
         temp.clear();
+    }
+
+    // validate the dependencies object
+    #isValidDependencies(deps: unknown): deps is TTaskDependencies {
+        return (
+            typeof deps === "object" &&
+            deps !== null &&
+            !Array.isArray(deps) &&
+            Object.entries(deps).every(([key, value]) => typeof key === "string" && value !== undefined)
+        );
     }
 }
 
