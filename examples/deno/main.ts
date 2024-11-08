@@ -45,7 +45,11 @@ if (import.meta.main) {
             },
             dependencies: ["task1"],
         })
-        .build();
+        .build({
+            onTasksCompleted: (ctx) => {
+                console.log("All tasks completed callback", ctx);
+            },
+        });
 
     const clujo = new Clujo({
         id: "test",
@@ -54,11 +58,12 @@ if (import.meta.main) {
             pattern: "*/10 * * * * *",
         },
         taskGraphRunner: tasks,
+        runOnStartup: false,
     });
 
     // Immediate trigger
     clujo.trigger().then((value) => {
-        console.log(value);
+        console.log("Trigger result", value);
     });
 
     // start cron

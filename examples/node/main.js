@@ -1,16 +1,17 @@
+"use strict"
+
 const util = require("node:util");
 const { TaskGraph, Clujo } = require("@ramplex/clujo");
 
 const sleep = util.promisify(setTimeout);
 
 const tasks = new TaskGraph({
-    contextFactory: () => 10
+    contextFactory: () => 10,
 })
     .addTask({
         id: "task1",
-        execute: async ({ deps, ctx }) => {
+        execute: ({ deps, ctx }) => {
             console.debug("Task 1 executing");
-            await sleep(5000);
             console.debug("Task 1", deps, ctx);
             console.debug("Task 1 executed");
             return "Task 1 result";
@@ -19,9 +20,8 @@ const tasks = new TaskGraph({
     })
     .addTask({
         id: "task2",
-        execute: async ({ deps, ctx }) => {
+        execute: ({ deps, ctx }) => {
             console.debug("Task 2 executing");
-            await sleep(500);
             console.log("Task 2", deps, ctx);
             console.debug("Task 2 executed");
             return "Task 2 result";
@@ -30,9 +30,8 @@ const tasks = new TaskGraph({
     })
     .addTask({
         id: "task3",
-        execute: async ({ deps, ctx }) => {
+        execute: ({ deps, ctx }) => {
             console.debug("Task 3 executing");
-            await sleep(5000);
             console.log("Task 3", deps, ctx);
             console.debug("Task 3 executed");
             return "Task 3 result";
@@ -49,7 +48,11 @@ const tasks = new TaskGraph({
         },
         dependencies: ["task1"],
     })
-    .build();
+    .build({
+        onTasksCompleted: (ctx) => {
+            console.log("All tasks completed callback", ctx);
+        },
+    });
 
 const clujo = new Clujo({
     id: "test",
@@ -58,11 +61,12 @@ const clujo = new Clujo({
         pattern: "*/10 * * * * *",
     },
     taskGraphRunner: tasks,
+    runOnStartup: false,
 });
 
 // Immediate trigger
 clujo.trigger().then((value) => {
-    console.log(value);
+    console.log("Trigger result", value);
 });
 
 // start cron

@@ -6,6 +6,6 @@
     "license": "ISC",
     "description": "",
     "dependencies": {
-        "@ramplex/clujo": "^2.0.3"
+        "@ramplex/clujo": "^3.0.0"
     }
 }
