@@ -70,7 +70,7 @@ export class Scheduler {
     /**
      * Returns the list of jobs added to the scheduler.
      */
-    get jobs() {
+    get jobs(): Clujo[] {
         return this.#jobs;
     }
 }
