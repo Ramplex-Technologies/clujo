@@ -215,7 +215,7 @@ const tasks = new TaskGraph({
 ```
 
 The context and dependencies are type-safe, ensuring you can only access properties that actually exist.
-Tasks can access their dependencies' results through the context object, and all tasks have access to the initial context under `ctx.initial`.
+Tasks can access their dependencies' results through the context object, and all tasks have access to the initial context (when set) under `ctx.initial`.
 
 ## Using Redis for Distributed Locking
 
