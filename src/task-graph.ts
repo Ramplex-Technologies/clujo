@@ -52,7 +52,7 @@ export class TaskGraph<
         | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>)
         | undefined = undefined;
     readonly #dependencies: TTaskDependencies = Object.create(null);
-    readonly #tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown>>();
+    readonly #tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>();
     readonly #topologicalOrder: string[] = [];
 
     constructor(
@@ -120,12 +120,12 @@ export class TaskGraph<
      * @throws {Error} If a task with the same ID already exists.
      * @throws {Error} If a specified dependency task has not been added to the graph yet.
      */
-    addTask<TTaskId extends string, TTaskDependencyIds extends TAllDependencyIds, TTaskReturn>(
+    addTask<TTaskId extends string, TTaskReturn, TTaskDependencyIds extends TAllDependencyIds = never>(
         options: TaskOptions<TTaskId, TTaskDependencies, TTaskContext, TTaskReturn, TTaskDependencyIds>,
     ): TaskGraph<
         TTaskDependencies,
         TInitialTaskContext,
-        TTaskContext & Partial<{ readonly [K in TTaskId]: TTaskReturn }>,
+        TTaskContext & { readonly [K in TTaskId]?: TTaskReturn },
         TAllDependencyIds | TTaskId
     > {
         const taskId = options.id;
@@ -148,16 +148,10 @@ export class TaskGraph<
             task.addDependency(depId);
         }
 
-        this.#tasks.set(taskId, task);
-        return this as unknown as TaskGraph<
-            TTaskDependencies,
-            TInitialTaskContext,
-            TTaskContext &
-                Partial<{
-                    [K in TTaskId]: TTaskReturn;
-                }>,
-            TAllDependencyIds | TTaskId
-        >;
+        // biome-ignore lint/suspicious/noExplicitAny: the typing here is super annoying
+        this.#tasks.set(taskId, task as any);
+        // biome-ignore lint/suspicious/noExplicitAny: do not want to track the type in two places
+        return this as any;
     }
 
     /**
@@ -266,7 +260,7 @@ export class TaskGraphRunner<
         | TInitialTaskContext
         | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>);
     readonly #topologicalOrder: string[];
-    readonly #tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>;
+    readonly #tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>;
     readonly #onTasksCompleted?: (ctx: TTaskContext) => void | Promise<void>;
 
     constructor(
@@ -278,7 +272,7 @@ export class TaskGraphRunner<
                   deps: TTaskDependencies,
               ) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>),
         topologicalOrder: string[],
-        tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown>>,
+        tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>,
         onTasksCompleted?: (ctx: TTaskContext) => void | Promise<void>,
     ) {
         this.#dependencies = dependencies;
