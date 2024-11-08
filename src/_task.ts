@@ -171,7 +171,6 @@ export class Task<
         for (let attempt = 0; attempt < this.#retryPolicy.maxRetries + 1; attempt++) {
             try {
                 this.#status = "running";
-
                 const result = await this.#options.execute(input);
                 this.#status = "completed";
                 return result;
