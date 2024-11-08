@@ -51,7 +51,7 @@ import type { TaskGraphRunner } from "./task-graph";
  * @param input.redis The redis settings for distributed locking
  * @param input.redis.client The IORedis client instance
  * @param input.redis.lockOptions The redis-semaphore lock options for lock acquisition
- * @param input.runImmediately If `true`, executes the task graph immediately on start, independent of the cron schedule
+ * @param input.runOnStartup If `true`, executes the task graph immediately on start, independent of the cron schedule
  *
  * @throw An error if the Clujo ID, task graph runner, or cron pattern is not provided.
  *
@@ -63,7 +63,7 @@ import type { TaskGraphRunner } from "./task-graph";
  *     pattern: '0 0 * * *', // Run daily at midnight
  *     options: { timezone: 'America/New_York' }
  *   },
- *   runImmediately: false,
+ *   runOnStartup: false,
  *   redis: { client: myRedisClient }
  * });
  */
@@ -79,19 +79,19 @@ export class Clujo<
     readonly #redis?: { client: Redis; lockOptions?: LockOptions };
 
     #hasStarted = false;
-    #runImmediately = false;
+    #runOnStartup = false;
 
     constructor({
         id,
         taskGraphRunner,
         cron,
-        runImmediately,
+        runOnStartup,
         redis,
     }: {
         id: string;
         taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
         cron: { pattern: string | Date; options?: CronOptions };
-        runImmediately?: boolean;
+        runOnStartup?: boolean;
         redis?: { client: Redis; lockOptions?: LockOptions };
     }) {
         if (!id) {
@@ -103,8 +103,8 @@ export class Clujo<
         if (!cron.pattern) {
             throw new Error("cron.pattern is required");
         }
-        if (runImmediately && typeof runImmediately !== "boolean") {
-            throw new Error("runImmediately must be a boolean.");
+        if (runOnStartup && typeof runOnStartup !== "boolean") {
+            throw new Error("runOnStartup must be a boolean.");
         }
         if (redis && !redis.client) {
             throw new Error("Redis client is required in redis input.");
@@ -112,7 +112,7 @@ export class Clujo<
         this.#id = id;
         this.#taskGraphRunner = taskGraphRunner;
         this.#cron = new Cron(cron.pattern, cron.options);
-        this.#runImmediately = Boolean(runImmediately);
+        this.#runOnStartup = Boolean(runOnStartup);
         this.#redis = redis;
     }
 
@@ -147,7 +147,7 @@ export class Clujo<
         this.#hasStarted = true;
         // we use the cron trigger here so that prevent overlapping is active by default
         // i.e., if no lock is used, and the trigger is executing, and the schedule time is reached, the scheduled execution will be skipped
-        if (this.#runImmediately) {
+        if (this.#runOnStartup) {
             this.#cron.trigger();
         }
     }
