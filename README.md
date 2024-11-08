@@ -1,6 +1,17 @@
+# clujo
+
+**IMPORTANT**: clujo is now published under `@ramplex/clujo` on npm and jsr. If you are using the old `clujo` package, please update your dependencies to use `@ramplex/clujo` instead. All future versions will be published under the new package name.
+
+Clujo is a flexible solution for managing scheduled tasks in your distributed Node.js / Deno applications. It would not be possible without the amazing work of the following projects:
+
+- [Croner](https://github.com/Hexagon/croner/tree/master?tab=readme-ov-file): used for running task graphs on a cron schedule
+- [ioredis](https://github.com/redis/ioredis) - (not a dependency, but the supported redis client) used to ensure single execution in a clustered/distributed environment
+- [redis-semaphore](https://github.com/swarthy/redis-semaphore) (only used if an `ioredis` instance is provided to start method) - used to ensure single execution in a distributed environment
+
+Coming soon: validated bun support.
+
 # Table of Contents
 
-- [clujo](#clujo)
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -20,23 +31,11 @@
 - [Contributing](#contributing)
 - [License](#license)
 
-# clujo
-
-Clujo is a flexible solution for managing scheduled tasks in your distributed Node.js / Deno applications. It would not be possible without the amazing work of the following projects:
-
-- [Croner](https://github.com/Hexagon/croner/tree/master?tab=readme-ov-file): used for running task graphs on a cron schedule
-- [ioredis](https://github.com/redis/ioredis) - (not a dependency, but the supported redis client) used to ensure single execution in a distributed environment
-- [redis-semaphore](https://github.com/swarthy/redis-semaphore) (only used if an `ioredis` instance is provided to start method) - used to ensure single execution in a distributed environment
-
-Coming soon: bun support.
-
-**IMPORTANT**: Clujo is now published under `@ramplex/clujo` on npm and jsr. If you are using the old `clujo` package, please update your dependencies to use `@ramplex/clujo` instead. All future versions will be published under the new package name.
-
 ## Features
 
 - Clujo provides an intuitive interface for setting up cron-like schedules, making it easy to create and manage recurring tasks.
 - Clujo's task orchestration allows you to define and execute a set of interdependent tasks, running independent tasks in parallel when possible while ensuring dependent tasks wait for their prerequisites.
-- Clujo's context system allows you to pass and modify state between tasks, enabling sophisticated data flow and making it easier to build complex, stateful workflows.
+- Clujo's context system allows you to pass and modify state between tasks, enabling sophisticated data flow and making it easier to build complex, stateful workflows, with type safety in mind.
 - Clujo includes a configurable retry policy, enabling your tasks to automatically recover from transient failures without manual intervention.
 - When used with Redis, Clujo provides out-of-the-box distributed locking, preventing overlapping executions in a distributed environment.
 - Clujo offers type-safe task definitions and context management.
@@ -82,6 +81,8 @@ Here's a simple example to get you started with Clujo:
 
 ```typescript
 import { TaskGraph, Clujo } from '@ramplex/clujo';
+// or (in node.js)
+// const { TaskGraph, Clujo } = require('@ramplex/clujo');
 
 // Define your tasks
 const tasks = new TaskGraph({
@@ -115,28 +116,30 @@ const tasks = new TaskGraph({
       deps.logger.log("Task 3 executing");
       return "Task 3 result";
     },
-    // since task3 has no dependencies, it will run in parallel with task1 at the start of execution
+    // since task3 has no dependencies, it will run in parallel with task1 at the start of execution and it does not have guaranteed access to any other task's result
   })
-  .build();
+  .build({
+      // Optional: provide a (sync or async) function to run when the job completes that takes in the completed context object
+      onTaskCompletion: (ctx) => console.log(ctx),
+  });
 
 // Create a Clujo instance
 const clujo = new Clujo({
   id: "myClujoJob",
   cron: {
     pattern: "*/5 * * * * *",
+    // Optional: provide options for the Cron run
+    options: { tz: "America/New_York" }
   },
   taskGraphRunner: tasks,
+  // Optional: provide an ioredis client for distributed locking
+  redis: { client: new Redis() },
+  // Optional: run the job immediately on startup, independent of the schedules
+  runOnStartup: true,
 });
 
 // Start the job
-clujo.start({
-  // Optional: provide an ioredis client for distributed locking
-  redis: { client: new Redis() },
-  // Optional: run the job immediately on startup
-  runOnStartup: true,
-  // Optional: provide a callback to run when the job completes that takes in the completed context object
-  onTaskCompletion: (ctx) => console.log(ctx),
-});
+clujo.start();
 
 // Trigger the job manually to get a complete context object
 const completedContext = await clujo.trigger();
@@ -159,7 +162,10 @@ The context object contains the appropriate context for the task.
 
  - All tasks have access to a context object which allows sharing values between tasks
  - If task `i` depends on tasks `j_1,...,j_n`, then it can be guaranteed the context object will have the result of tasks `j_1,...,j_n` under the keys `j_1,...,j_n`. The value at these keys is the return of task `j_i`, `i = 1,...,n`.
- - If a task has no dependencies it has access to the initial context object only (if it was set).
+ - The context object is read-only. Modifying the context object directly will will not be reflected in the context object and will result in a runtime error (in strict mode).
+ - If a task has no dependencies it has guaranteed access to the initial context object only (if it was set).
+ - A task attempting to access a task result from a task it does not depend on is undefined behavior. If the task has run,
+    the value will be present in the context object, but it is not guaranteed to be present.
 
 ### Task execution
 
@@ -170,7 +176,7 @@ The context object contains the appropriate context for the task.
 
 In the event a task execution fails, all further dependent tasks will not be executed. Other independent tasks will continue to run.
 
-Can build up more complex cases from these simple cases
+More complex cases can be built from the above examples.
 
 
 ## Setting Context and Dependencies
@@ -190,7 +196,7 @@ const tasks = new TaskGraph({
   })
   .build();
 
-// Using an (sync or async) context factory
+// Using a (sync or async) context factory
 const tasks = new TaskGraph({
   contextFactory: async (deps) => {
     const users = await fetchUsers();
@@ -218,13 +224,16 @@ When an `ioredis` client is provided, Clujo will use it to acquire a lock for ea
 ```typescript
 import Redis from 'ioredis';
 
-const redis = new Redis();
+const client = new Redis();
 
-clujo.start({
+new Clujo({
+  id: "myClujoJob",
+  cron: { pattern: "*/5 * * * * *" },
+  taskGraphRunner: tasks,
   redis: {
-    client: redis,
-    lockOptions: { /* optional lock options */ }
-  }
+      client,
+      lockOptions: { /* optional redis-semaphore lock options */ }
+  },
 });
 ```
 
@@ -235,8 +244,11 @@ The triggered execution will prevent a scheduled execution from running at the s
 the scheduled execution overlaps with the triggered execution.
 
 ```typescript
-clujo.start({
-  runOnStartup: true
+new Clujo({
+  id: "myClujoJob",
+  cron: { pattern: "*/5 * * * * *" },
+  taskGraphRunner: tasks,
+  runOnStartup: true,
 });
 ```
 
@@ -283,17 +295,8 @@ import { Redis } from 'ioredis';
 const scheduler = new Scheduler();
 
 // Add jobs to the scheduler
-scheduler.addJob({
-  job: myFirstClujoJob,
-  // Optional completion handler for this clujo
-  completionHandler: async (ctx) => {
-    console.log('First job completed with context:', ctx);
-  }
-});
-
-scheduler.addJob({
-  job: mySecondClujoJob
-});
+scheduler.addJob(myFirstClujo);
+scheduler.addJob(mySecondClujo);
 
 // Add more jobs as needed
 ```
@@ -303,13 +306,8 @@ scheduler.addJob({
 You can start all added jobs at once, optionally providing a Redis instance for distributed locking:
 
 ```typescript
-const redis = new Redis(); // Your Redis configuration
-
-// Start all jobs without distributed locking
+// Start all jobs
 scheduler.start();
-
-// Or, start all jobs with distributed locking
-scheduler.start(redis);
 ```
 
 ## Stopping All Jobs
