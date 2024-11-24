@@ -32,11 +32,8 @@
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "package.json"
-  ],
-  "packageManager": "pnpm",
+  "files": ["dist", "package.json"],
+  "packageManager": "pnpm@9.14.2",
   "exports": {
     ".": {
       "require": "./dist/index.js",
