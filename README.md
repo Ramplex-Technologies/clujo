@@ -120,7 +120,8 @@ const tasks = new TaskGraph({
   })
   .build({
       // Optional: provide a (sync or async) function to run when the job completes that takes in the completed context object
-      onTaskCompletion: (ctx) => console.log(ctx),
+      // dependencies, and errors (list of errors from the failed tasks or null if no errors)
+      onTaskCompleted: (ctx, deps, errors) => console.log(ctx, deps, errors),
   });
 
 // Create a Clujo instance
