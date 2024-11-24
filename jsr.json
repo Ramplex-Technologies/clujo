@@ -1,17 +1,9 @@
 {
-    "name": "@ramplex/clujo",
-    "version": "3.0.0",
-    "exports": "./src/index.ts",
-    "publish": {
-        "include": [
-            "LICENSE",
-            "README.md",
-            "src/**/*.ts"
-        ],
-        "exclude": [
-            ".husky/",
-            "examples/",
-            "src/**/*.test.ts"
-        ]
-    }
+  "name": "@ramplex/clujo",
+  "version": "3.1.0",
+  "exports": "./src/index.ts",
+  "publish": {
+    "include": ["LICENSE", "README.md", "src/**/*.ts"],
+    "exclude": [".husky/", "examples/", "src/**/*.test.ts"]
+  }
 }
