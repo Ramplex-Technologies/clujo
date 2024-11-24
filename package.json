@@ -28,11 +28,14 @@
   },
   "license": "MIT",
   "private": false,
-  "version": "3.1.0",
+  "version": "3.1.1",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "package.json"],
+  "files": [
+    "dist",
+    "package.json"
+  ],
   "packageManager": "pnpm",
   "exports": {
     ".": {
