@@ -163,15 +163,15 @@ export class TaskGraph<
      *
      * @throws {Error} If no tasks have been added to the graph.
      */
-    build(
-        {
-            onTasksCompleted,
-        }: {
-            onTasksCompleted?: (ctx: DeepReadonly<TTaskContext>) => void | Promise<void>;
-        } = {
-            onTasksCompleted: undefined,
-        },
-    ): TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext> {
+    build({
+        onTasksCompleted,
+    }: {
+        onTasksCompleted?: (
+            ctx: DeepReadonly<TTaskContext>,
+            deps: TTaskDependencies,
+            errors: Error[] | null,
+        ) => void | Promise<void>;
+    } = {}): TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext> {
         if (!this.size) {
             throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
         }
@@ -261,7 +261,12 @@ export class TaskGraphRunner<
         | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>);
     readonly #topologicalOrder: string[];
     readonly #tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>;
-    readonly #onTasksCompleted?: (ctx: TTaskContext) => void | Promise<void>;
+    readonly #onTasksCompleted?: (
+        ctx: TTaskContext,
+        deps: TTaskDependencies,
+        errors: Error[] | null,
+    ) => void | Promise<void>;
+    readonly #errors: Error[] = [];
 
     constructor(
         dependencies: TTaskDependencies,
@@ -273,7 +278,7 @@ export class TaskGraphRunner<
               ) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>),
         topologicalOrder: string[],
         tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>,
-        onTasksCompleted?: (ctx: TTaskContext) => void | Promise<void>,
+        onTasksCompleted?: (ctx: TTaskContext, deps: TTaskDependencies, errors: Error[] | null) => void | Promise<void>,
     ) {
         this.#dependencies = dependencies;
         this.#contextValueOrFactory = contextValueOrFactory;
@@ -329,7 +334,10 @@ export class TaskGraphRunner<
                 const result = await task.run(this.#dependencies, this.#context.value);
                 await this.#context.update({ [taskId]: result });
                 completed.add(taskId);
-            } catch {
+            } catch (err) {
+                if (err instanceof Error) {
+                    this.#errors.push(err);
+                }
                 // completed in the sense that we won't try to run it again
                 completed.add(taskId);
             } finally {
@@ -369,7 +377,11 @@ export class TaskGraphRunner<
         }
 
         if (this.#onTasksCompleted) {
-            await this.#onTasksCompleted(this.#context.value);
+            await this.#onTasksCompleted(
+                this.#context.value,
+                this.#dependencies,
+                this.#errors.length > 0 ? this.#errors : null,
+            );
         }
 
         return this.#context.value;

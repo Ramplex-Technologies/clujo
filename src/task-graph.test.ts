@@ -306,7 +306,19 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                     return ctx.asyncTask1 + ctx.syncTask2;
                 },
             })
-            .build();
+            .build({
+                onTasksCompleted: (ctx, deps, errors) => {
+                    assert.deepEqual(ctx, {
+                        initial: { initialValue: 10 },
+                        syncTask1: 20,
+                        asyncTask1: 25,
+                        syncTask2: 60,
+                        asyncTask2: 85,
+                    });
+                    assert.deepEqual(deps, { multiplier: 2 });
+                    assert.deepEqual(errors, null);
+                },
+            });
 
         const result = await runner.run();
 
@@ -344,7 +356,17 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                 dependencies: ["task2", "task3"],
                 execute: ({ ctx }) => `${ctx.task2} - ${ctx.task3}`,
             })
-            .build();
+            .build({
+                onTasksCompleted: (ctx, deps, errors) => {
+                    assert.deepEqual(ctx, {
+                        initial: undefined,
+                        task1: "result1",
+                        task3: "result3",
+                    });
+                    assert.deepEqual(deps, Object.create(null));
+                    assert.equal(errors?.length, 1);
+                },
+            });
         const result = await runner.run();
 
         assert.deepEqual(result, {

@@ -1,33 +1,33 @@
 {
-  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "style": {
-        "noUnusedTemplateLiteral": {
-          "level": "warn",
-          "fix": "safe"
-        },
-        "useBlockStatements": {
-          "level": "error",
-          "fix": "safe"
+    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+    "organizeImports": {
+        "enabled": true
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "recommended": true,
+            "style": {
+                "noUnusedTemplateLiteral": {
+                    "level": "warn",
+                    "fix": "safe"
+                },
+                "useBlockStatements": {
+                    "level": "error",
+                    "fix": "safe"
+                }
+            }
         }
-      }
+    },
+    "formatter": {
+        "enabled": true,
+        "attributePosition": "auto",
+        "formatWithErrors": false,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 120,
+        "lineEnding": "lf",
+        "include": ["**/*.ts", "**/*.test.ts"],
+        "ignore": ["node_modules/*", "dist/*", "tsconfig.json"]
     }
-  },
-  "formatter": {
-    "enabled": true,
-    "attributePosition": "auto",
-    "formatWithErrors": false,
-    "indentStyle": "space",
-    "indentWidth": 4,
-    "lineWidth": 120,
-    "lineEnding": "lf",
-    "include": ["**/*.ts", "**/*.test.ts"],
-    "ignore": ["node_modules/*", "dist/*", "tsconfig.json"]
-  }
 }
