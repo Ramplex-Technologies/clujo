@@ -25,6 +25,7 @@
 
 import { Context } from "./_context";
 import { Task, type TaskOptions } from "./_task";
+import { TaskError } from "./error";
 
 type DeepReadonly<T> = {
     readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
@@ -169,7 +170,7 @@ export class TaskGraph<
         onTasksCompleted?: (
             ctx: DeepReadonly<TTaskContext>,
             deps: TTaskDependencies,
-            errors: Error[] | null,
+            errors: TaskError[] | null,
         ) => void | Promise<void>;
     } = {}): TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext> {
         if (!this.size) {
@@ -264,9 +265,9 @@ export class TaskGraphRunner<
     readonly #onTasksCompleted?: (
         ctx: TTaskContext,
         deps: TTaskDependencies,
-        errors: Error[] | null,
+        errors: TaskError[] | null,
     ) => void | Promise<void>;
-    readonly #errors: Error[] = [];
+    readonly #errors: TaskError[] = [];
 
     constructor(
         dependencies: TTaskDependencies,
@@ -278,7 +279,11 @@ export class TaskGraphRunner<
               ) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>),
         topologicalOrder: string[],
         tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>,
-        onTasksCompleted?: (ctx: TTaskContext, deps: TTaskDependencies, errors: Error[] | null) => void | Promise<void>,
+        onTasksCompleted?: (
+            ctx: TTaskContext,
+            deps: TTaskDependencies,
+            errors: TaskError[] | null,
+        ) => void | Promise<void>,
     ) {
         this.#dependencies = dependencies;
         this.#contextValueOrFactory = contextValueOrFactory;
@@ -336,7 +341,7 @@ export class TaskGraphRunner<
                 completed.add(taskId);
             } catch (err) {
                 if (err instanceof Error) {
-                    this.#errors.push(err);
+                    this.#errors.push(new TaskError(taskId, err));
                 }
                 // completed in the sense that we won't try to run it again
                 completed.add(taskId);

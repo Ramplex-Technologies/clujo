@@ -365,6 +365,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                     });
                     assert.deepEqual(deps, Object.create(null));
                     assert.equal(errors?.length, 1);
+                    assert.equal(errors?.at(0)?.id, "task2");
                 },
             });
         const result = await runner.run();
