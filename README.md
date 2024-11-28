@@ -120,7 +120,7 @@ const tasks = new TaskGraph({
   })
   .build({
       // Optional: provide a (sync or async) function to run when the job completes that takes in the completed context object
-      // dependencies, and errors (list of errors from the failed tasks or null if no errors)
+      // dependencies, and errors (list of TaskError for each task that failed if any errors occurred, otherwise null)
       onTaskCompleted: (ctx, deps, errors) => console.log(ctx, deps, errors),
   });
 
