@@ -20,7 +20,7 @@ declare class Cron {
     stop(timeout: number): Promise<void>;
     /**
      * Triggers the cron job to run immediately. A triggered execution will prevent the job from running at its scheduled time
-     * unless `preventOverlap` is set to `false` in the cron options.
+     * unless `protect` is set to `false` in the cron options.
      *
      * @throws {Error} If attempting to trigger a job that is not running.
      */

@@ -35,7 +35,6 @@ export class Cron {
     readonly #cronOptions: CronOptions | undefined;
 
     #isRunning = false;
-    #isTriggering = false;
 
     constructor(cronExpression: string | Date | (string | Date)[], cronOptions?: CronOptions) {
         this.#cronExpression = cronExpression;
@@ -55,7 +54,7 @@ export class Cron {
         }
         // if using multiple expressions, prevent all from overlapping
         const wrapHandler = async () => {
-            if (this.#cronOptions?.protect && (this.#isRunning || this.#isTriggering)) {
+            if (this.#cronOptions?.protect && this.#isRunning) {
                 return;
             }
             try {
@@ -113,7 +112,7 @@ export class Cron {
 
     /**
      * Triggers the cron job to run immediately. A triggered execution will prevent the job from running at its scheduled time
-     * unless `preventOverlap` is set to `false` in the cron options.
+     * unless `protect` is set to `false` in the cron options.
      *
      * @throws {Error} If attempting to trigger a job that is not running.
      */
@@ -121,11 +120,6 @@ export class Cron {
         if (!this.#jobs) {
             throw new Error("Attempting to trigger a job that is not running");
         }
-        try {
-            this.#isTriggering = true;
-            await this.#jobs[0].trigger();
-        } catch {
-            this.#isTriggering = false;
-        }
+        await this.#jobs[0].trigger();
     }
 }

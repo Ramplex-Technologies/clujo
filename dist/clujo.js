@@ -77,7 +77,6 @@ var Cron = class {
   #cronExpression;
   #cronOptions;
   #isRunning = false;
-  #isTriggering = false;
   constructor(cronExpression, cronOptions) {
     this.#cronExpression = cronExpression;
     this.#cronOptions = { protect: true, ...cronOptions };
@@ -93,7 +92,7 @@ var Cron = class {
       throw new Error("Attempting to start an already started job");
     }
     const wrapHandler = async () => {
-      if (this.#cronOptions?.protect && (this.#isRunning || this.#isTriggering)) {
+      if (this.#cronOptions?.protect && this.#isRunning) {
         return;
       }
       try {
@@ -144,7 +143,7 @@ var Cron = class {
   }
   /**
    * Triggers the cron job to run immediately. A triggered execution will prevent the job from running at its scheduled time
-   * unless `preventOverlap` is set to `false` in the cron options.
+   * unless `protect` is set to `false` in the cron options.
    *
    * @throws {Error} If attempting to trigger a job that is not running.
    */
@@ -152,12 +151,7 @@ var Cron = class {
     if (!this.#jobs) {
       throw new Error("Attempting to trigger a job that is not running");
     }
-    try {
-      this.#isTriggering = true;
-      await this.#jobs[0].trigger();
-    } catch {
-      this.#isTriggering = false;
-    }
+    await this.#jobs[0].trigger();
   }
 };
 
