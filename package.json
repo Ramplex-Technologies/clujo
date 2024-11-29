@@ -33,7 +33,7 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "files": ["dist", "package.json"],
-  "packageManager": "pnpm@9.14.2",
+  "packageManager": "pnpm@9.14.3",
   "exports": {
     ".": {
       "require": "./dist/index.js",
@@ -57,7 +57,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/node": "^22.9.3",
+    "@types/node": "^22.10.1",
     "esbuild": "^0.24.0",
     "esbuild-register": "^3.6.0",
     "husky": "^9.1.7",
