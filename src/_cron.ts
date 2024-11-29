@@ -30,13 +30,17 @@
 import { type CronOptions, Cron as Croner } from "croner";
 
 export class Cron {
-    #job: Croner | null = null;
-    #cronExpression: string | Date;
-    #cronOptions: CronOptions | undefined;
+    #jobs: Croner[] | null = null;
+    readonly #cronExpression: string | Date | (string | Date)[];
+    readonly #cronOptions: CronOptions | undefined;
 
-    constructor(cronExpression: string | Date, cronOptions?: CronOptions) {
+    #isRunning = false;
+    #isTriggering = false;
+
+    constructor(cronExpression: string | Date | (string | Date)[], cronOptions?: CronOptions) {
         this.#cronExpression = cronExpression;
-        this.#cronOptions = cronOptions;
+        // default to protect mode (prevent overlapping executions) on the same process in the single pattern case
+        this.#cronOptions = { protect: true, ...cronOptions };
     }
 
     /**
@@ -46,10 +50,24 @@ export class Cron {
      * @throws {Error} If attempting to start a job that has already been started.
      */
     start(handler: () => Promise<void> | void): void {
-        if (this.#job) {
+        if (this.#jobs) {
             throw new Error("Attempting to start an already started job");
         }
-        this.#job = new Croner(this.#cronExpression, this.#cronOptions, handler);
+        // if using multiple expressions, prevent all from overlapping
+        const wrapHandler = async () => {
+            if (this.#cronOptions?.protect && (this.#isRunning || this.#isTriggering)) {
+                return;
+            }
+            try {
+                this.#isRunning = true;
+                await handler();
+            } finally {
+                this.#isRunning = false;
+            }
+        };
+        this.#jobs = Array.isArray(this.#cronExpression)
+            ? this.#cronExpression.map((expression) => new Croner(expression, this.#cronOptions, wrapHandler))
+            : [new Croner(this.#cronExpression, this.#cronOptions, handler)];
     }
 
     /**
@@ -63,22 +81,27 @@ export class Cron {
         return new Promise<void>((resolve) => {
             const startTime = Date.now();
             const checkAndStop = () => {
-                if (!this.#job) {
+                if (!this.#jobs) {
                     resolve(); // resolve if job has cleared
                     return;
                 }
 
-                if (this.#job.isBusy()) {
+                if (this.#jobs.some((job) => job.isBusy())) {
                     if (Date.now() - startTime > timeout) {
-                        this.#job.stop();
-                        this.#job = null;
+                        for (const job of this.#jobs) {
+                            job.stop();
+                            this.#jobs = null;
+                        }
+
                         resolve();
                         return;
                     }
                     setTimeout(checkAndStop, 100);
                 } else {
-                    this.#job.stop();
-                    this.#job = null;
+                    for (const job of this.#jobs) {
+                        job.stop();
+                    }
+                    this.#jobs = null;
                     resolve();
                     return;
                 }
@@ -95,9 +118,14 @@ export class Cron {
      * @throws {Error} If attempting to trigger a job that is not running.
      */
     async trigger(): Promise<void> {
-        if (!this.#job) {
+        if (!this.#jobs) {
             throw new Error("Attempting to trigger a job that is not running");
         }
-        await this.#job.trigger();
+        try {
+            this.#isTriggering = true;
+            await this.#jobs[0].trigger();
+        } catch {
+            this.#isTriggering = false;
+        }
     }
 }

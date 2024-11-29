@@ -128,12 +128,20 @@ const tasks = new TaskGraph({
 const clujo = new Clujo({
   id: "myClujoJob",
   cron: {
-    pattern: "*/5 * * * * *",
-    // Optional: provide options for the Cron run
+    // You can provide either a single pattern
+    pattern: "*/5 * * * * *", // Every 5 seconds
+    // OR multiple patterns
+    patterns: [
+      "*/5 * * * * *",    // Every 5 seconds
+      "0 */2 * * *",      // Every 2 hours
+      new Date("2024-12-25T00:00:00") // One-time execution on Christmas
+    ],
+    // Optional: provide options for the Cron run (Croner `CronOptions`)
     options: { tz: "America/New_York" }
   },
   taskGraphRunner: tasks,
   // Optional: provide an ioredis client for distributed locking
+  // In a clustered / multi-instance environment, this will prevent overlapping executions
   redis: { client: new Redis() },
   // Optional: run the job immediately on startup, independent of the schedules
   runOnStartup: true,
@@ -150,8 +158,9 @@ const completedContext = await clujo.trigger();
 await clujo.stop(timeoutMs);
 ```
 
-In the event a Javascript `Date` object is provided instead of a cron pattern, the task graph
-will be executed precisely once at the specific date/time specified. Time is in ISO 8601 local time.
+In the event a Javascript `Date` object is provided in the patterns array or as a singular pattern, the task graph
+will be executed precisely once at the specific date/time specified for that pattern. Time is in ISO 8601 local time.
+When using multiple patterns, if executions overlap, Clujo will prevent concurrent executions.
 
 # Advanced Usage
 

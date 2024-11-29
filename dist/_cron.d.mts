@@ -2,7 +2,7 @@ import { CronOptions } from 'croner';
 
 declare class Cron {
     #private;
-    constructor(cronExpression: string | Date, cronOptions?: CronOptions);
+    constructor(cronExpression: string | Date | (string | Date)[], cronOptions?: CronOptions);
     /**
      * Starts the cron job with the specified handler.
      *

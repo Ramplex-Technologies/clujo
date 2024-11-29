@@ -15,8 +15,7 @@ import './error.mjs';
  * @param input.id The unique identifier for the Clujo instance.
  * @param input.taskGraphRunner The task graph runner to use for executing the task graph.
  * @param input.cron The cron schedule for the Clujo instance.
- * @param input.cron.pattern The cron pattern to use for scheduling the task graph. If a Date object is provided, the task graph will execute once at
- *   the specified time.
+ * @param input.cron.pattern The cron pattern to use for scheduling the task graph. If a Date object is provided, the task graph will execute once at the specified time.
  * @param input.cron.options Optional options to use when creating the cron job.
  * @param input.redis The redis settings for distributed locking
  * @param input.redis.client The IORedis client instance
@@ -46,8 +45,11 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<s
     constructor({ id, taskGraphRunner, cron, runOnStartup, redis, }: {
         id: string;
         taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
-        cron: {
+        cron: ({
             pattern: string | Date;
+        } | {
+            patterns: (string | Date)[];
+        }) & {
             options?: CronOptions;
         };
         runOnStartup?: boolean;

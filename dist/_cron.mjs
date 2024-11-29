@@ -1,12 +1,14 @@
 // src/_cron.ts
 import { Cron as Croner } from "croner";
 var Cron = class {
-  #job = null;
+  #jobs = null;
   #cronExpression;
   #cronOptions;
+  #isRunning = false;
+  #isTriggering = false;
   constructor(cronExpression, cronOptions) {
     this.#cronExpression = cronExpression;
-    this.#cronOptions = cronOptions;
+    this.#cronOptions = { protect: true, ...cronOptions };
   }
   /**
    * Starts the cron job with the specified handler.
@@ -15,10 +17,21 @@ var Cron = class {
    * @throws {Error} If attempting to start a job that has already been started.
    */
   start(handler) {
-    if (this.#job) {
+    if (this.#jobs) {
       throw new Error("Attempting to start an already started job");
     }
-    this.#job = new Croner(this.#cronExpression, this.#cronOptions, handler);
+    const wrapHandler = async () => {
+      if (this.#cronOptions?.protect && (this.#isRunning || this.#isTriggering)) {
+        return;
+      }
+      try {
+        this.#isRunning = true;
+        await handler();
+      } finally {
+        this.#isRunning = false;
+      }
+    };
+    this.#jobs = Array.isArray(this.#cronExpression) ? this.#cronExpression.map((expression) => new Croner(expression, this.#cronOptions, wrapHandler)) : [new Croner(this.#cronExpression, this.#cronOptions, handler)];
   }
   /**
    * Stops the cron job. If the job is currently running, it will wait for the job to finish before stopping it.
@@ -31,21 +44,25 @@ var Cron = class {
     return new Promise((resolve) => {
       const startTime = Date.now();
       const checkAndStop = () => {
-        if (!this.#job) {
+        if (!this.#jobs) {
           resolve();
           return;
         }
-        if (this.#job.isBusy()) {
+        if (this.#jobs.some((job) => job.isBusy())) {
           if (Date.now() - startTime > timeout) {
-            this.#job.stop();
-            this.#job = null;
+            for (const job of this.#jobs) {
+              job.stop();
+              this.#jobs = null;
+            }
             resolve();
             return;
           }
           setTimeout(checkAndStop, 100);
         } else {
-          this.#job.stop();
-          this.#job = null;
+          for (const job of this.#jobs) {
+            job.stop();
+          }
+          this.#jobs = null;
           resolve();
           return;
         }
@@ -60,10 +77,15 @@ var Cron = class {
    * @throws {Error} If attempting to trigger a job that is not running.
    */
   async trigger() {
-    if (!this.#job) {
+    if (!this.#jobs) {
       throw new Error("Attempting to trigger a job that is not running");
     }
-    await this.#job.trigger();
+    try {
+      this.#isTriggering = true;
+      await this.#jobs[0].trigger();
+    } catch {
+      this.#isTriggering = false;
+    }
   }
 };
 export {

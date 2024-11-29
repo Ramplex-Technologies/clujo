@@ -45,8 +45,7 @@ import type { TaskGraphRunner } from "./task-graph";
  * @param input.id The unique identifier for the Clujo instance.
  * @param input.taskGraphRunner The task graph runner to use for executing the task graph.
  * @param input.cron The cron schedule for the Clujo instance.
- * @param input.cron.pattern The cron pattern to use for scheduling the task graph. If a Date object is provided, the task graph will execute once at
- *   the specified time.
+ * @param input.cron.pattern The cron pattern to use for scheduling the task graph. If a Date object is provided, the task graph will execute once at the specified time.
  * @param input.cron.options Optional options to use when creating the cron job.
  * @param input.redis The redis settings for distributed locking
  * @param input.redis.client The IORedis client instance
@@ -90,7 +89,7 @@ export class Clujo<
     }: {
         id: string;
         taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
-        cron: { pattern: string | Date; options?: CronOptions };
+        cron: ({ pattern: string | Date } | { patterns: (string | Date)[] }) & { options?: CronOptions };
         runOnStartup?: boolean;
         redis?: { client: Redis; lockOptions?: LockOptions };
     }) {
@@ -100,8 +99,14 @@ export class Clujo<
         if (!taskGraphRunner) {
             throw new Error("taskGraphRunner is required");
         }
-        if (!cron.pattern) {
+        if (!("pattern" in cron || "patterns" in cron)) {
+            throw new Error("Either cron.pattern or cron.patterns is required.");
+        }
+        if ("pattern" in cron && !cron.pattern) {
             throw new Error("cron.pattern is required");
+        }
+        if ("patterns" in cron && !cron.patterns) {
+            throw new Error("cron.patterns is required");
         }
         if (runOnStartup && typeof runOnStartup !== "boolean") {
             throw new Error("runOnStartup must be a boolean.");
@@ -111,7 +116,7 @@ export class Clujo<
         }
         this.#id = id;
         this.#taskGraphRunner = taskGraphRunner;
-        this.#cron = new Cron(cron.pattern, cron.options);
+        this.#cron = new Cron("pattern" in cron ? cron.pattern : cron.patterns, cron.options);
         this.#runOnStartup = Boolean(runOnStartup);
         this.#redis = redis;
     }
