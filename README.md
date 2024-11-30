@@ -188,6 +188,23 @@ In the event a task execution fails, all further dependent tasks will not be exe
 
 More complex cases can be built from the above examples.
 
+## Visualizing Task Dependencies
+
+You can visualize the task dependency structure when starting a Clujo instance by using the `printTaskGraph` option:
+
+```typescript
+clujo.start({ printTaskGraph: true });
+```
+
+This will print a visual representation of your task graph to the console. For example:
+
+```
+test Structure:
+└─ task1
+  ├─ task4
+└─ task2
+  ├─ task3
+
 
 ## Setting Context and Dependencies
 

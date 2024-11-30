@@ -181,7 +181,7 @@ var Clujo = class {
    * Starts the cron job, which will execute the task graph according to the cron schedule.
    * @throws An error if the Clujo has already started.
    */
-  start() {
+  start(options) {
     if (this.#hasStarted) {
       throw new Error("Cannot start a Clujo that has already started.");
     }
@@ -209,6 +209,11 @@ var Clujo = class {
     };
     this.#cron.start(handler);
     this.#hasStarted = true;
+    if (options?.printTaskGraph) {
+      console.log();
+      console.log(this.#taskGraphRunner.printTaskGraph(this.#id));
+      console.log();
+    }
     if (this.#runOnStartup) {
       this.#cron.trigger();
     }
@@ -629,14 +634,7 @@ var TaskGraphRunner = class {
     this.#tasks = tasks;
     this.#onTasksCompleted = onTasksCompleted;
   }
-  /**
-   * Runs the tasks in the graph in topological order.
-   * Tasks are run concurrently when possible.
-   * In the event a task fails, other independent tasks will continue to run.
-   *
-   * @returns A promise that resolves to the completed context object when all tasks have completed.
-   */
-  async run() {
+  async #run() {
     if (this.#topologicalOrder.length === 0) {
       throw new Error("No tasks to run. Did you forget to call topologicalSort?");
     }
@@ -705,6 +703,63 @@ var TaskGraphRunner = class {
       );
     }
     return this.#context.value;
+  }
+  /**
+   * Runs the tasks in the graph in topological order.
+   * Tasks are run concurrently when possible.
+   * In the event a task fails, other independent tasks will continue to run.
+   *
+   * @returns A promise that resolves to the completed context object when all tasks have completed.
+   */
+  async run() {
+    try {
+      return await this.#run();
+    } finally {
+      this.#context.reset(void 0);
+    }
+  }
+  printTaskGraph(clujoId) {
+    if (this.#tasks.size === 0) {
+      return "Empty task graph";
+    }
+    const visited = /* @__PURE__ */ new Set();
+    const output = [`${clujoId} Structure:`];
+    const getIndent = (level) => "  ".repeat(level);
+    const printTask = (taskId, level = 0, parentChain = /* @__PURE__ */ new Set()) => {
+      if (parentChain.has(taskId)) {
+        output.push(`${getIndent(level)}${taskId} (circular dependency!)`);
+        return;
+      }
+      const task = this.#tasks.get(taskId);
+      if (!task) {
+        return;
+      }
+      visited.add(taskId);
+      const prefix = level === 0 ? "\u2514\u2500 " : "\u251C\u2500 ";
+      output.push(`${getIndent(level)}${prefix}${taskId}`);
+      const newParentChain = new Set(parentChain).add(taskId);
+      const dependencies = Array.from(task.dependencies);
+      dependencies.forEach((depId, index) => {
+        if (!visited.has(depId)) {
+          printTask(depId, level + 1, newParentChain);
+        } else {
+          const prefix2 = index === dependencies.length - 1 ? "\u2514\u2500 " : "\u251C\u2500 ";
+          output.push(`${getIndent(level + 1)}${prefix2}${depId} (already shown)`);
+        }
+      });
+    };
+    const rootTasks = Array.from(this.#tasks.entries()).filter(([_, task]) => task.dependencies.length === 0).map(([id]) => id);
+    for (const taskId of rootTasks) {
+      if (!visited.has(taskId)) {
+        printTask(taskId);
+      }
+    }
+    this.#tasks.forEach((_, taskId) => {
+      if (!visited.has(taskId)) {
+        printTask(taskId);
+      }
+    });
+    return output.join("\n");
   }
 };
 

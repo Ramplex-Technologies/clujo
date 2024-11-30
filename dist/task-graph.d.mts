@@ -84,6 +84,7 @@ declare class TaskGraphRunner<TTaskDependencies extends Record<string, unknown>,
      * @returns A promise that resolves to the completed context object when all tasks have completed.
      */
     run(): Promise<TTaskContext>;
+    printTaskGraph(clujoId: string): string;
 }
 
 export { TaskGraph, TaskGraphRunner };

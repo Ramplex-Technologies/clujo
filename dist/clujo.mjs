@@ -181,7 +181,7 @@ var Clujo = class {
    * Starts the cron job, which will execute the task graph according to the cron schedule.
    * @throws An error if the Clujo has already started.
    */
-  start() {
+  start(options) {
     if (this.#hasStarted) {
       throw new Error("Cannot start a Clujo that has already started.");
     }
@@ -209,6 +209,11 @@ var Clujo = class {
     };
     this.#cron.start(handler);
     this.#hasStarted = true;
+    if (options?.printTaskGraph) {
+      console.log();
+      console.log(this.#taskGraphRunner.printTaskGraph(this.#id));
+      console.log();
+    }
     if (this.#runOnStartup) {
       this.#cron.trigger();
     }

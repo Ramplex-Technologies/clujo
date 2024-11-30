@@ -129,7 +129,9 @@ export class Clujo<
      * Starts the cron job, which will execute the task graph according to the cron schedule.
      * @throws An error if the Clujo has already started.
      */
-    start(): void {
+    start(options?: {
+        printTaskGraph?: boolean;
+    }): void {
         if (this.#hasStarted) {
             throw new Error("Cannot start a Clujo that has already started.");
         }
@@ -150,6 +152,13 @@ export class Clujo<
         };
         this.#cron.start(handler);
         this.#hasStarted = true;
+
+        if (options?.printTaskGraph) {
+            console.log();
+            console.log(this.#taskGraphRunner.printTaskGraph(this.#id));
+            console.log();
+        }
+
         // we use the cron trigger here so that prevent overlapping is active by default
         // i.e., if no lock is used, and the trigger is executing, and the schedule time is reached, the scheduled execution will be skipped
         if (this.#runOnStartup) {

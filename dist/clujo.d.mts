@@ -63,7 +63,9 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<s
      * Starts the cron job, which will execute the task graph according to the cron schedule.
      * @throws An error if the Clujo has already started.
      */
-    start(): void;
+    start(options?: {
+        printTaskGraph?: boolean;
+    }): void;
     /**
      * Stops the cron job and prevents any further executions of the task graph.
      * If the task graph is currently executing, it will be allowed to finish for up to the specified timeout.

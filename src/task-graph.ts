@@ -292,14 +292,7 @@ export class TaskGraphRunner<
         this.#onTasksCompleted = onTasksCompleted;
     }
 
-    /**
-     * Runs the tasks in the graph in topological order.
-     * Tasks are run concurrently when possible.
-     * In the event a task fails, other independent tasks will continue to run.
-     *
-     * @returns A promise that resolves to the completed context object when all tasks have completed.
-     */
-    async run(): Promise<TTaskContext> {
+    async #run(): Promise<TTaskContext> {
         if (this.#topologicalOrder.length === 0) {
             throw new Error("No tasks to run. Did you forget to call topologicalSort?");
         }
@@ -390,5 +383,86 @@ export class TaskGraphRunner<
         }
 
         return this.#context.value;
+    }
+
+    /**
+     * Runs the tasks in the graph in topological order.
+     * Tasks are run concurrently when possible.
+     * In the event a task fails, other independent tasks will continue to run.
+     *
+     * @returns A promise that resolves to the completed context object when all tasks have completed.
+     */
+    async run() {
+        try {
+            return await this.#run();
+        } finally {
+            this.#context.reset(undefined);
+        }
+    }
+
+    printTaskGraph(clujoId: string): string {
+        if (this.#tasks.size === 0) {
+            return "Empty task graph";
+        }
+
+        const visited = new Set<string>();
+        const output: string[] = [`${clujoId} Structure:`];
+
+        // Helper function to create indentation
+        const getIndent = (level: number) => "  ".repeat(level);
+
+        // Helper function to print a task and its dependencies recursively
+        const printTask = (taskId: string, level = 0, parentChain = new Set<string>()): void => {
+            if (parentChain.has(taskId)) {
+                output.push(`${getIndent(level)}${taskId} (circular dependency!)`);
+                return;
+            }
+
+            const task = this.#tasks.get(taskId);
+            if (!task) {
+                return;
+            }
+
+            // Mark as visited
+            visited.add(taskId);
+
+            // Print current task
+            const prefix = level === 0 ? "└─ " : "├─ ";
+            output.push(`${getIndent(level)}${prefix}${taskId}`);
+
+            // Recursively print dependencies
+            const newParentChain = new Set(parentChain).add(taskId);
+            const dependencies = Array.from(task.dependencies);
+
+            dependencies.forEach((depId, index) => {
+                if (!visited.has(depId)) {
+                    printTask(depId, level + 1, newParentChain);
+                } else {
+                    const prefix = index === dependencies.length - 1 ? "└─ " : "├─ ";
+                    output.push(`${getIndent(level + 1)}${prefix}${depId} (already shown)`);
+                }
+            });
+        };
+
+        // Find root tasks (tasks with no dependencies)
+        const rootTasks = Array.from(this.#tasks.entries())
+            .filter(([_, task]) => task.dependencies.length === 0)
+            .map(([id]) => id);
+
+        // Print starting from each root task
+        for (const taskId of rootTasks) {
+            if (!visited.has(taskId)) {
+                printTask(taskId);
+            }
+        }
+
+        // Print any remaining tasks that weren't reached
+        this.#tasks.forEach((_, taskId) => {
+            if (!visited.has(taskId)) {
+                printTask(taskId);
+            }
+        });
+
+        return output.join("\n");
     }
 }
