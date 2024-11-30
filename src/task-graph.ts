@@ -392,7 +392,7 @@ export class TaskGraphRunner<
      *
      * @returns A promise that resolves to the completed context object when all tasks have completed.
      */
-    async run() {
+    async run(): Promise<TTaskContext> {
         try {
             return await this.#run();
         } finally {
