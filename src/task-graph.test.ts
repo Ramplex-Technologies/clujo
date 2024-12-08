@@ -25,9 +25,9 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { DependencyMap } from "./_dependency-map";
 import type { TaskOptions } from "./task";
 import { TaskGraph, TaskGraphRunner } from "./task-graph";
-import { DependencyMap } from "./_dependency-map";
 
 test("TaskGraph", async (t) => {
     await t.test("constructor validates dependencies input", async (t) => {

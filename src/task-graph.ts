@@ -25,8 +25,8 @@
 
 import { Context } from "./_context";
 import { DependencyMap } from "./_dependency-map";
-import { Task, type TaskOptions } from "./task";
 import { TaskError } from "./error";
+import { Task, type TaskOptions } from "./task";
 
 type DeepReadonly<T> = {
     readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
