@@ -173,7 +173,7 @@ test("TaskGraph", async (t) => {
         });
         const runner = taskGraph.build();
 
-        assert.ok(typeof runner.run === "function");
+        assert.ok(typeof runner.trigger === "function");
     });
 
     await t.test("build throws error when no tasks added", () => {
@@ -184,7 +184,7 @@ test("TaskGraph", async (t) => {
 });
 
 test("TaskGraphRunner", async (t) => {
-    await t.test("run executes tasks in correct order", async () => {
+    await t.test("trigger executes tasks in correct order", async () => {
         // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         let taskGraph: any = new TaskGraph();
         const executionOrder: string[] = [];
@@ -206,7 +206,53 @@ test("TaskGraphRunner", async (t) => {
         });
 
         const runner = taskGraph.build();
-        const result = await runner.run();
+        const result = await runner.trigger();
+
+        assert.deepEqual(executionOrder, ["task1", "task2"]);
+        assert.deepEqual(result, {
+            initial: undefined,
+            task1: "result1",
+            task2: "result2",
+        });
+    });
+
+    await t.test("trigger skips tree of disabled tasks", async () => {
+        const executionOrder: string[] = [];
+        const taskGraph = new TaskGraph()
+            .addTask({
+                id: "task1",
+                execute: () => {
+                    executionOrder.push("task1");
+                    return "result1";
+                },
+            })
+            .addTask({
+                id: "task2",
+                dependencies: ["task1"],
+                execute: () => {
+                    executionOrder.push("task2");
+                    return "result2";
+                },
+            })
+            .addTask({
+                id: "task3",
+                execute: () => {
+                    executionOrder.push("task3");
+                    return "result3";
+                },
+                enabled: false,
+            })
+            .addTask({
+                id: "task4",
+                dependencies: ["task1", "task3"],
+                execute: () => {
+                    executionOrder.push("task4");
+                    return "result4";
+                },
+            });
+
+        const runner = taskGraph.build();
+        const result = await runner.trigger();
 
         assert.deepEqual(executionOrder, ["task1", "task2"]);
         assert.deepEqual(result, {
@@ -229,7 +275,7 @@ test("TaskGraphRunner", async (t) => {
         });
 
         const runner = taskGraph.build();
-        const result = await runner.run();
+        const result = await runner.trigger();
 
         assert.deepEqual(result, {
             initial: undefined,
@@ -245,17 +291,17 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
         assert.throws(() => taskGraph.build(), /Unable to build TaskGraphRunner. No tasks added to the graph/);
     });
 
-    await t.test("running with empty topological order throws", async () => {
+    await t.test("triggering with empty topological order throws", async () => {
         const runner = new TaskGraphRunner({}, undefined, [], new Map());
 
-        await assert.rejects(runner.run(), /No tasks to run. Did you forget to call topologicalSort?/);
+        await assert.rejects(runner.trigger(), /No tasks to run. Did you forget to call topologicalSort?/);
     });
 
-    await t.test("running with no context value throws", async () => {
+    await t.test("triggering with no context value throws", async () => {
         // biome-ignore lint/suspicious/noExplicitAny: faking input
         const runner = new TaskGraphRunner({}, undefined, ["task1"], new Map<any, any>([["task2", { id: "task1" }]]));
 
-        await assert.rejects(runner.run(), /Task task1 not found/);
+        await assert.rejects(runner.trigger(), /Task task1 not found/);
     });
 
     await t.test("mix of sync and async tasks with dependencies", async (t) => {
@@ -320,7 +366,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                 },
             });
 
-        const result = await runner.run();
+        const result = await runner.trigger();
 
         assert.deepEqual(executionOrder, ["syncTask1", "asyncTask1", "syncTask2", "asyncTask2"]);
         assert.deepEqual(result, {
@@ -368,7 +414,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                     assert.equal(errors?.at(0)?.id, "task2");
                 },
             });
-        const result = await runner.run();
+        const result = await runner.trigger();
 
         assert.deepEqual(result, {
             initial: undefined,
@@ -402,7 +448,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
         });
 
         const runner = taskGraph.build();
-        const result = await runner.run();
+        const result = await runner.trigger();
 
         const duration = Date.now() - startTime;
 
@@ -474,7 +520,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
             })
             .build();
 
-        const result = await runner.run();
+        const result = await runner.trigger();
 
         assert.deepEqual(result, {
             initial: { initialValue: 10 },

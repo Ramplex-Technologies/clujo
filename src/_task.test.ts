@@ -74,6 +74,19 @@ test("Task Class", async (t) => {
         assert.equal(task.status, "completed");
     });
 
+    await t.test("run skips disabled task", async () => {
+        const task = new Task({
+            id: "test-task",
+            execute: async ({ deps, ctx }) => `${deps.value}-${ctx.initial}`,
+            enabled: false,
+        });
+
+        const result = await task.run({ value: "dep" }, { initial: "ctx" });
+
+        assert.equal(result, null);
+        assert.equal(task.status, "skipped");
+    });
+
     await t.test("run retries on failure according to retry policy", async () => {
         let attempts = 0;
         const task = new Task({

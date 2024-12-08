@@ -14,11 +14,18 @@ Coming soon: validated bun support.
 
 - [Features](#features)
 - [Installation](#installation)
+    - [npm](#npm-registry)
+    - [jsr](jsr-registry)
 - [Quick Start](#quick-start)
+    [Using the Task Graph](#using-the-task-graph)
 - [Advanced Usage](#advanced-usage)
   - [Understanding Dependency Execution](#understanding-dependency-execution)
     - [Context object](#context-object)
     - [Task execution](#task-execution)
+  - [Disabling Execution](#disabling-execution)
+    - [Disabling a Clujo](#disabling-a-clujo)
+    - [Disabling a Task](#disabling-a-task)
+  - [Visualizing Task Dependencies](#visualizing-task-dependencies)
   - [Setting Context and Dependencies](#setting-context-and-dependencies)
   - [Using Redis for Distributed Locking](#using-redis-for-distributed-locking)
   - [Running Tasks on Startup](#running-tasks-on-startup)
@@ -31,7 +38,7 @@ Coming soon: validated bun support.
 - [Contributing](#contributing)
 - [License](#license)
 
-## Features
+# Features
 
 - Clujo provides an intuitive interface for setting up cron-like schedules, making it easy to create and manage recurring tasks.
 - Clujo's task orchestration allows you to define and execute a set of interdependent tasks, running independent tasks in parallel when possible while ensuring dependent tasks wait for their prerequisites.
@@ -119,7 +126,7 @@ const tasks = new TaskGraph({
     // since task3 has no dependencies, it will run in parallel with task1 at the start of execution and it does not have guaranteed access to any other task's result
   })
   .build({
-      // Optional: provide a (sync or async) function to run when the job completes that takes in the completed context object
+      // Optional: provide a (sync or async) function to run when the task graph completes execution that takes in the completed context object
       // dependencies, and errors (list of TaskError for each task that failed if any errors occurred, otherwise null)
       onTasksCompleted: (ctx, deps, errors) => console.log(ctx, deps, errors),
   });
@@ -162,6 +169,17 @@ In the event a Javascript `Date` object is provided in the patterns array or as 
 will be executed precisely once at the specific date/time specified for that pattern. Time is in ISO 8601 local time.
 When using multiple patterns, if executions overlap, Clujo will prevent concurrent executions.
 
+## Using the Task Graph
+
+There is no need to use `Clujo` to execute the `TaskGraphRunner` that is instantiated when invoking `TaskGraph.build`.
+The graph can be invoked as desired via the `trigger` function, i.e.,
+
+```typescript
+const completedContext = await tasks.trigger()
+```
+
+If provided, the `onTaskCompleted` will invoke before the promise resolves.
+
 # Advanced Usage
 
 ## Understanding Dependency Execution
@@ -172,7 +190,7 @@ The context object contains the appropriate context for the task.
 
  - All tasks have access to a context object which allows sharing values between tasks
  - If task `i` depends on tasks `j_1,...,j_n`, then it can be guaranteed the context object will have the result of tasks `j_1,...,j_n` under the keys `j_1,...,j_n`. The value at these keys is the return of task `j_i`, `i = 1,...,n`.
- - The context object is read-only. Modifying the context object directly will will not be reflected in the context object and will result in a runtime error (in strict mode).
+ - The context object is read-only. Modifying the context object directly will not be reflected in the context object and will result in a runtime error (in strict mode).
  - If a task has no dependencies it has guaranteed access to the initial context object only (if it was set).
  - A task attempting to access a task result from a task it does not depend on is undefined behavior. If the task has run,
     the value will be present in the context object, but it is not guaranteed to be present.
@@ -184,9 +202,90 @@ The context object contains the appropriate context for the task.
   - case: Fix `1 <= i != j <= N`. N tasks where task `i` depends on task `j`. `N\{i}` tasks run concurrently, task `i` runs after task `j`.
   - case: Task `i` depends on task `j`, task `j` depends on task `i`. Cyclic dependencies will result in an error pre-execution.
 
-In the event a task execution fails, all further dependent tasks will not be executed. Other independent tasks will continue to run.
+In the event a task execution fails, or a task is disabled, all further dependent tasks will not be executed. Other independent tasks will continue to run.
 
 More complex cases can be built from the above examples.
+
+## Disabling Execution
+
+You can disable either the whole `Clujo` or individual tasks via the `enabled` option.
+
+### Disabling a Clujo
+
+To disable a `Clujo` from executing on it's schedule, use the `enabled` option in the constructor:
+
+```typescript
+const clujo = new Clujo({
+  id: "myClujoJob",
+  cron: {
+    // every 3 minute at the top of the minute from 8AM to midnight
+    // every 15 minutes at the top of the minute from midnight to 8AM
+    patterns: ["*/3 8-23 * * *", "*/15 0-7 * * *"],
+  },
+  // built task graph
+  taskGraphRunner: tasks,
+  redis: { client: new Redis() },
+  runOnStartup: true,
+  enabled: process.env.NODE_ENV !== "development"
+});
+```
+
+This will still run on the given schedule, but the handler will warn that the Clujo is disabled and skip execution.
+
+### Disabling a Task
+
+If you do not want to disable the whole Clujo, but instead disable a task (and all tasks that depend on it), you can
+use the `enabled` option in the `TaskGraph.addTask` function. The following unit test exhibits the intended behavior.
+
+```typescript
+await t.test("trigger skips tree of disabled tasks", async () => {
+    const executionOrder: string[] = [];
+    const taskGraph = new TaskGraph()
+        .addTask({
+            id: "task1",
+            execute: () => {
+                executionOrder.push("task1");
+                return "result1";
+            },
+        })
+        .addTask({
+            id: "task2",
+            dependencies: ["task1"],
+            execute: () => {
+                executionOrder.push("task2");
+                return "result2";
+            },
+        })
+        // will skip since it is not enabled
+        .addTask({
+            id: "task3",
+            execute: () => {
+                executionOrder.push("task3");
+                return "result3";
+            },
+            enabled: false,
+        })
+        // will skip since it depends on a task that is not enabled
+        .addTask({
+            id: "task4",
+            dependencies: ["task1", "task3"],
+            execute: () => {
+                executionOrder.push("task4");
+                return "result4";
+            },
+        });
+
+    const runner = taskGraph.build();
+    const result = await runner.trigger();
+
+    assert.deepEqual(executionOrder, ["task1", "task2"]);
+    assert.deepEqual(result, {
+        initial: undefined,
+        task1: "result1",
+        task2: "result2",
+    });
+});
+```
 
 ## Visualizing Task Dependencies
 
@@ -204,7 +303,7 @@ test Structure:
   ├─ task4
 └─ task2
   ├─ task3
-
+```
 
 ## Setting Context and Dependencies
 
@@ -295,6 +394,23 @@ Tasks can have their own error handlers, allowing you to define custom logic for
 })
 ```
 
+Another way to monitor / act on errors is to make use of the `onTasksCompleted` hook in the `TaskGraph.build` call, i.e.,
+
+```typescript
+new TaskGraph()
+    .addTask({
+        id: "task",
+        execute: async ({ deps, ctx }) => {...}
+    })
+    .build({
+        onTasksCompleted: (ctx, deps, errors) => {
+            for (const error of errors) {
+                console.error(`${error.id} failed: ${error.message}`)
+            }
+        },
+    });
+```
+
 ## Retry Policy
 
 Specify a retry policy for a task to automatically retry failed executions. The task will be retried up to `maxRetries` times, with a delay of `retryDelayMs` between each retry.
@@ -312,6 +428,7 @@ Specify a retry policy for a task to automatically retry failed executions. The 
 # Using the Scheduler
 
 The Scheduler class provides a convenient way to manage multiple Clujo jobs together. It allows you to add, start, and stop groups of jobs in a centralized manner.
+It is not required and `Clujo`'s can be managed manually if desired.
 
 ## Adding Jobs to the Scheduler
 

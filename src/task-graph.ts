@@ -296,7 +296,6 @@ export class TaskGraphRunner<
         if (this.#topologicalOrder.length === 0) {
             throw new Error("No tasks to run. Did you forget to call topologicalSort?");
         }
-
         let value: TInitialTaskContext | undefined;
         if (this.#contextValueOrFactory) {
             value =
@@ -307,8 +306,8 @@ export class TaskGraphRunner<
                           ) => TInitialTaskContext | Promise<TInitialTaskContext>
                       )(this.#dependencies)
                     : this.#contextValueOrFactory;
+            this.#context.reset(value);
         }
-        this.#context.reset(value);
 
         const completed = new Set<string>();
         const running = new Map<string, Promise<void>>();
@@ -318,7 +317,7 @@ export class TaskGraphRunner<
                 if (!task) {
                     throw new Error(`Task ${taskId} not found`);
                 }
-                return task.dependencies.length === 0;
+                return task.isEnabled && task.dependencies.length === 0;
             }),
         );
 
@@ -344,10 +343,17 @@ export class TaskGraphRunner<
                 // Check if any dependent tasks are now ready to run
                 for (const [id, t] of this.#tasks) {
                     if (!completed.has(id) && !running.has(id)) {
-                        const canRun = t.dependencies.every((depId) => {
-                            const depTask = this.#tasks.get(depId);
-                            return depTask && completed.has(depId) && depTask.status === "completed";
-                        });
+                        const canRun =
+                            t.isEnabled &&
+                            t.dependencies.every((depId) => {
+                                const depTask = this.#tasks.get(depId);
+                                return (
+                                    depTask &&
+                                    completed.has(depId) &&
+                                    depTask.status === "completed" &&
+                                    depTask.isEnabled
+                                );
+                            });
                         if (canRun) {
                             readyTasks.add(id);
                         }
@@ -370,6 +376,8 @@ export class TaskGraphRunner<
             } else {
                 // no tasks are running and we have not completed all tasks
                 // happens when tasks could not run due to failed dependencies
+                // or when there is a set of tasks that can not be run due to
+                // a disabled task
                 break;
             }
         }
@@ -392,7 +400,7 @@ export class TaskGraphRunner<
      *
      * @returns A promise that resolves to the completed context object when all tasks have completed.
      */
-    async run(): Promise<TTaskContext> {
+    async trigger(): Promise<TTaskContext> {
         try {
             return await this.#run();
         } finally {
@@ -428,7 +436,7 @@ export class TaskGraphRunner<
 
             // Print current task
             const prefix = level === 0 ? "└─ " : "├─ ";
-            output.push(`${getIndent(level)}${prefix}${taskId}`);
+            output.push(`${getIndent(level)}${prefix}${taskId}${task.isEnabled ? "" : " (Disabled)"}`);
 
             // Recursively print dependencies
             const newParentChain = new Set(parentChain).add(taskId);

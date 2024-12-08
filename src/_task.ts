@@ -63,6 +63,7 @@ export type TaskOptions<
      * The dependencies of the task.
      */
     dependencies?: readonly TPossibleTaskDependencyId[];
+    enabled?: boolean;
     /**
      * The retry policy for the task.
      *
@@ -142,6 +143,13 @@ export class Task<
     }
 
     /**
+     * Return whether this task is enabled or not
+     */
+    get isEnabled(): boolean {
+        return this.#options.enabled === undefined || this.#options.enabled;
+    }
+
+    /**
      * Gets the ID of the task.
      *
      * @returns The task ID
@@ -160,7 +168,11 @@ export class Task<
      * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
      * @throws {Error} If the task execution fails after all retry attempts
      */
-    async run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn> {
+    async run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn | null> {
+        if (!this.isEnabled) {
+            this.#status = "skipped";
+            return null;
+        }
         const input = {
             deps,
             ctx: ctx as [TPossibleTaskDependencyId] extends [never]
@@ -243,5 +255,6 @@ type RetryPolicy = {
  * - running: Task is executing
  * - completed: Task has been executed successfully
  * - failed: Task has failed to execute
+ * - skipped: Task was skipped due to being disabled
  */
-type TaskStatus = "pending" | "running" | "completed" | "failed";
+type TaskStatus = "pending" | "running" | "completed" | "failed" | "skipped";
