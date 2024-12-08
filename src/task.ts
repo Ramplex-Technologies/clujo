@@ -107,7 +107,6 @@ export class Task<
     TTaskReturn,
     TPossibleTaskDependencyId extends string = never,
 > {
-    readonly #dependencies: string[] = [];
     readonly #options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, TPossibleTaskDependencyId>;
 
     #retryPolicy: RetryPolicy = { maxRetries: 0, retryDelayMs: 0 };
@@ -119,27 +118,6 @@ export class Task<
             this.#retryPolicy = options.retryPolicy;
         }
         this.#options = options;
-    }
-
-    /**
-     * Adds a dependency to the task.
-     *
-     * @param taskId - The ID of the task to add as a dependency
-     */
-    addDependency(taskId: string): void {
-        if (taskId === this.#options.id) {
-            throw new Error("A task cannot depend on itself");
-        }
-        this.#dependencies.push(taskId);
-    }
-
-    /**
-     * Gets the list of task dependencies.
-     *
-     * @returns An array of task IDs representing the dependencies
-     */
-    get dependencies(): string[] {
-        return this.#dependencies;
     }
 
     /**

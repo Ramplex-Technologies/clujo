@@ -25,7 +25,7 @@
 
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { Task } from "../src/_task";
+import { Task } from "./task";
 
 test("Task Class", async (t) => {
     await t.test("constructor initializes task correctly", () => {
@@ -36,30 +36,6 @@ test("Task Class", async (t) => {
 
         assert.equal(task.id, "test-task");
         assert.equal(task.status, "pending");
-        assert.deepEqual(task.dependencies, []);
-    });
-
-    await t.test("addDependency adds dependency correctly", () => {
-        const task = new Task({
-            id: "test-task",
-            execute: async () => "result",
-        });
-
-        task.addDependency("dependency-1");
-        task.addDependency("dependency-2");
-
-        assert.deepEqual(task.dependencies, ["dependency-1", "dependency-2"]);
-    });
-
-    await t.test("addDependency throws error when adding self as dependency", () => {
-        const task = new Task({
-            id: "test-task",
-            execute: async () => "result",
-        });
-
-        assert.throws(() => task.addDependency("test-task"), {
-            message: "A task cannot depend on itself",
-        });
     });
 
     await t.test("run executes task successfully", async () => {

@@ -25,8 +25,9 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { TaskOptions } from "../src/_task";
-import { TaskGraph, TaskGraphRunner } from "../src/task-graph";
+import type { TaskOptions } from "./task";
+import { TaskGraph, TaskGraphRunner } from "./task-graph";
+import { DependencyMap } from "./_dependency-map";
 
 test("TaskGraph", async (t) => {
     await t.test("constructor validates dependencies input", async (t) => {
@@ -292,14 +293,20 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
     });
 
     await t.test("triggering with empty topological order throws", async () => {
-        const runner = new TaskGraphRunner({}, undefined, [], new Map());
+        const runner = new TaskGraphRunner({}, undefined, [], new Map(), new DependencyMap());
 
         await assert.rejects(runner.trigger(), /No tasks to run. Did you forget to call topologicalSort?/);
     });
 
     await t.test("triggering with no context value throws", async () => {
-        // biome-ignore lint/suspicious/noExplicitAny: faking input
-        const runner = new TaskGraphRunner({}, undefined, ["task1"], new Map<any, any>([["task2", { id: "task1" }]]));
+        const runner = new TaskGraphRunner(
+            {},
+            undefined,
+            ["task1"],
+            // biome-ignore lint/suspicious/noExplicitAny: faking input
+            new Map<any, any>([["task2", { id: "task1" }]]),
+            new DependencyMap(),
+        );
 
         await assert.rejects(runner.trigger(), /Task task1 not found/);
     });
