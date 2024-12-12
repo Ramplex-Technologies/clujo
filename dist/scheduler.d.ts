@@ -3,6 +3,7 @@ import 'croner';
 import 'ioredis';
 import 'redis-semaphore';
 import './task-graph.js';
+import './_dependency-map.js';
 import './_task.js';
 import './error.js';
 

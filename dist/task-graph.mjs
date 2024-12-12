@@ -44,10 +44,23 @@ function deepFreeze(obj) {
   return Object.freeze(obj);
 }
 
+// src/_dependency-map.ts
+var DependencyMap = class {
+  #dependencies = /* @__PURE__ */ Object.create(null);
+  add(key, value) {
+    if (!this.#dependencies[key]) {
+      this.#dependencies[key] = [];
+    }
+    this.#dependencies[key].push(value);
+  }
+  get(key) {
+    return Object.freeze(this.#dependencies[key]?.slice() ?? []);
+  }
+};
+
 // src/_task.ts
 import { promisify } from "node:util";
 var Task = class {
-  #dependencies = [];
   #options;
   #retryPolicy = { maxRetries: 0, retryDelayMs: 0 };
   #status = "pending";
@@ -59,23 +72,10 @@ var Task = class {
     this.#options = options;
   }
   /**
-   * Adds a dependency to the task.
-   *
-   * @param taskId - The ID of the task to add as a dependency
+   * Return whether this task is enabled or not
    */
-  addDependency(taskId) {
-    if (taskId === this.#options.id) {
-      throw new Error("A task cannot depend on itself");
-    }
-    this.#dependencies.push(taskId);
-  }
-  /**
-   * Gets the list of task dependencies.
-   *
-   * @returns An array of task IDs representing the dependencies
-   */
-  get dependencies() {
-    return this.#dependencies;
+  get isEnabled() {
+    return this.#options.enabled === void 0 || this.#options.enabled;
   }
   /**
    * Gets the ID of the task.
@@ -96,6 +96,10 @@ var Task = class {
    * @throws {Error} If the task execution fails after all retry attempts
    */
   async run(deps, ctx) {
+    if (!this.isEnabled) {
+      this.#status = "skipped";
+      return null;
+    }
     const input = {
       deps,
       ctx
@@ -165,6 +169,7 @@ var TaskGraph = class {
   #contextValueOrFactory = void 0;
   #dependencies = /* @__PURE__ */ Object.create(null);
   #tasks = /* @__PURE__ */ new Map();
+  #taskDependencies = new DependencyMap();
   #topologicalOrder = [];
   constructor(options) {
     if (!options) {
@@ -231,7 +236,7 @@ var TaskGraph = class {
       if (!dependentTask) {
         throw new Error(`Dependency ${depId} not found for task ${taskId}`);
       }
-      task.addDependency(depId);
+      this.#taskDependencies.add(taskId, depId);
     }
     this.#tasks.set(taskId, task);
     return this;
@@ -260,6 +265,7 @@ var TaskGraph = class {
       this.#contextValueOrFactory,
       this.#topologicalOrder,
       this.#tasks,
+      this.#taskDependencies,
       onTasksCompleted
     );
   }
@@ -281,11 +287,7 @@ var TaskGraph = class {
       }
       if (!visited.has(taskId)) {
         temp.add(taskId);
-        const task = this.#tasks.get(taskId);
-        if (!task) {
-          throw new Error(`Task ${taskId} not found`);
-        }
-        for (const depId of task.dependencies) {
+        for (const depId of this.#taskDependencies.get(taskId)) {
           visit(depId);
         }
         temp.delete(taskId);
@@ -312,13 +314,15 @@ var TaskGraphRunner = class {
   #contextValueOrFactory;
   #topologicalOrder;
   #tasks;
+  #taskDependencies;
   #onTasksCompleted;
   #errors = [];
-  constructor(dependencies, contextValueOrFactory, topologicalOrder, tasks, onTasksCompleted) {
+  constructor(dependencies, contextValueOrFactory, topologicalOrder, tasks, taskDependencies, onTasksCompleted) {
     this.#dependencies = dependencies;
     this.#contextValueOrFactory = contextValueOrFactory;
     this.#topologicalOrder = topologicalOrder;
     this.#tasks = tasks;
+    this.#taskDependencies = taskDependencies;
     this.#onTasksCompleted = onTasksCompleted;
   }
   async #run() {
@@ -328,8 +332,8 @@ var TaskGraphRunner = class {
     let value;
     if (this.#contextValueOrFactory) {
       value = typeof this.#contextValueOrFactory === "function" ? await this.#contextValueOrFactory(this.#dependencies) : this.#contextValueOrFactory;
+      this.#context.reset(value);
     }
-    this.#context.reset(value);
     const completed = /* @__PURE__ */ new Set();
     const running = /* @__PURE__ */ new Map();
     const readyTasks = new Set(
@@ -338,7 +342,7 @@ var TaskGraphRunner = class {
         if (!task) {
           throw new Error(`Task ${taskId} not found`);
         }
-        return task.dependencies.length === 0;
+        return task.isEnabled && this.#taskDependencies.get(taskId).length === 0;
       })
     );
     const runTask = async (taskId) => {
@@ -359,9 +363,9 @@ var TaskGraphRunner = class {
         running.delete(taskId);
         for (const [id, t] of this.#tasks) {
           if (!completed.has(id) && !running.has(id)) {
-            const canRun = t.dependencies.every((depId) => {
+            const canRun = t.isEnabled && this.#taskDependencies.get(t.id).every((depId) => {
               const depTask = this.#tasks.get(depId);
-              return depTask && completed.has(depId) && depTask.status === "completed";
+              return depTask && completed.has(depId) && depTask.status === "completed" && depTask.isEnabled;
             });
             if (canRun) {
               readyTasks.add(id);
@@ -398,7 +402,7 @@ var TaskGraphRunner = class {
    *
    * @returns A promise that resolves to the completed context object when all tasks have completed.
    */
-  async run() {
+  async trigger() {
     try {
       return await this.#run();
     } finally {
@@ -423,9 +427,9 @@ var TaskGraphRunner = class {
       }
       visited.add(taskId);
       const prefix = level === 0 ? "\u2514\u2500 " : "\u251C\u2500 ";
-      output.push(`${getIndent(level)}${prefix}${taskId}`);
+      output.push(`${getIndent(level)}${prefix}${taskId}${task.isEnabled ? "" : " (Disabled)"}`);
       const newParentChain = new Set(parentChain).add(taskId);
-      const dependencies = Array.from(task.dependencies);
+      const dependencies = Array.from(this.#taskDependencies.get(task.id));
       dependencies.forEach((depId, index) => {
         if (!visited.has(depId)) {
           printTask(depId, level + 1, newParentChain);
@@ -435,7 +439,7 @@ var TaskGraphRunner = class {
         }
       });
     };
-    const rootTasks = Array.from(this.#tasks.entries()).filter(([_, task]) => task.dependencies.length === 0).map(([id]) => id);
+    const rootTasks = Array.from(this.#tasks.entries()).filter(([_, task]) => this.#taskDependencies.get(task.id).length === 0).map(([id]) => id);
     for (const taskId of rootTasks) {
       if (!visited.has(taskId)) {
         printTask(taskId);

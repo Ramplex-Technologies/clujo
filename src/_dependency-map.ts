@@ -22,14 +22,20 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-export class TaskError extends Error {
-    public id: string;
-    public error: Error;
+/**
+ * Used to track which other tasks must execute before a task
+ */
+export class DependencyMap {
+    readonly #dependencies: Record<string, string[]> = Object.create(null);
 
-    constructor(id: string, error: Error) {
-        super(`Task ${id} failed: ${error.message}`);
-        this.id = id;
-        this.error = error;
-        this.name = "TaskError";
+    add(key: string, value: string) {
+        if (!this.#dependencies[key]) {
+            this.#dependencies[key] = [];
+        }
+        this.#dependencies[key].push(value);
+    }
+
+    get(key: string) {
+        return Object.freeze(this.#dependencies[key]?.slice() ?? []);
     }
 }

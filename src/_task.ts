@@ -63,6 +63,7 @@ export type TaskOptions<
      * The dependencies of the task.
      */
     dependencies?: readonly TPossibleTaskDependencyId[];
+    enabled?: boolean;
     /**
      * The retry policy for the task.
      *
@@ -106,7 +107,6 @@ export class Task<
     TTaskReturn,
     TPossibleTaskDependencyId extends string = never,
 > {
-    readonly #dependencies: string[] = [];
     readonly #options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, TPossibleTaskDependencyId>;
 
     #retryPolicy: RetryPolicy = { maxRetries: 0, retryDelayMs: 0 };
@@ -121,24 +121,10 @@ export class Task<
     }
 
     /**
-     * Adds a dependency to the task.
-     *
-     * @param taskId - The ID of the task to add as a dependency
+     * Return whether this task is enabled or not
      */
-    addDependency(taskId: string): void {
-        if (taskId === this.#options.id) {
-            throw new Error("A task cannot depend on itself");
-        }
-        this.#dependencies.push(taskId);
-    }
-
-    /**
-     * Gets the list of task dependencies.
-     *
-     * @returns An array of task IDs representing the dependencies
-     */
-    get dependencies(): string[] {
-        return this.#dependencies;
+    get isEnabled(): boolean {
+        return this.#options.enabled === undefined || this.#options.enabled;
     }
 
     /**
@@ -160,7 +146,11 @@ export class Task<
      * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
      * @throws {Error} If the task execution fails after all retry attempts
      */
-    async run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn> {
+    async run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn | null> {
+        if (!this.isEnabled) {
+            this.#status = "skipped";
+            return null;
+        }
         const input = {
             deps,
             ctx: ctx as [TPossibleTaskDependencyId] extends [never]
@@ -243,5 +233,6 @@ type RetryPolicy = {
  * - running: Task is executing
  * - completed: Task has been executed successfully
  * - failed: Task has failed to execute
+ * - skipped: Task was skipped due to being disabled
  */
-type TaskStatus = "pending" | "running" | "completed" | "failed";
+type TaskStatus = "pending" | "running" | "completed" | "failed" | "skipped";

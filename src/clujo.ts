@@ -76,6 +76,7 @@ export class Clujo<
     readonly #cron: Cron;
     readonly #taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
     readonly #redis?: { client: Redis; lockOptions?: LockOptions };
+    readonly #enabled: boolean;
 
     #hasStarted = false;
     #runOnStartup = false;
@@ -84,12 +85,14 @@ export class Clujo<
         id,
         taskGraphRunner,
         cron,
+        enabled,
         runOnStartup,
         redis,
     }: {
         id: string;
         taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
         cron: ({ pattern: string | Date } | { patterns: (string | Date)[] }) & { options?: CronOptions };
+        enabled?: boolean;
         runOnStartup?: boolean;
         redis?: { client: Redis; lockOptions?: LockOptions };
     }) {
@@ -108,6 +111,9 @@ export class Clujo<
         if ("patterns" in cron && !cron.patterns) {
             throw new Error("cron.patterns is required");
         }
+        if (enabled && typeof enabled !== "boolean") {
+            throw new Error("enabled must be a boolean");
+        }
         if (runOnStartup && typeof runOnStartup !== "boolean") {
             throw new Error("runOnStartup must be a boolean.");
         }
@@ -118,6 +124,8 @@ export class Clujo<
         this.#taskGraphRunner = taskGraphRunner;
         this.#cron = new Cron("pattern" in cron ? cron.pattern : cron.patterns, cron.options);
         this.#runOnStartup = Boolean(runOnStartup);
+        // default to enabled
+        this.#enabled = enabled ?? true;
         this.#redis = redis;
     }
 
@@ -137,13 +145,17 @@ export class Clujo<
         }
 
         const handler = async () => {
+            if (!this.#enabled) {
+                console.warn(`Clujo ${this.#id} is disabled. Skipping execution of the tasks`);
+                return;
+            }
             try {
                 if (!this.#redis) {
-                    await this.#taskGraphRunner.run();
+                    await this.#taskGraphRunner.trigger();
                 } else {
                     await using lock = await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions);
                     if (lock) {
-                        await this.#taskGraphRunner.run();
+                        await this.#taskGraphRunner.trigger();
                     }
                 }
             } catch (error) {
@@ -189,7 +201,7 @@ export class Clujo<
      */
     async trigger(): Promise<TTaskContext> {
         // we do not trigger via the cron here so that we can make use of the result of the task graph
-        return await this.#taskGraphRunner.run();
+        return await this.#taskGraphRunner.trigger();
     }
 
     /**
@@ -211,6 +223,7 @@ export class Clujo<
             [Symbol.asyncDispose]: async () => {
                 try {
                     await mutex.release();
+                    console.debug(`Mutex released for Clujo ${this.id}`);
                 } catch (error) {
                     console.error(`Error releasing lock for Clujo ${this.#id}: ${error}`);
                 }

@@ -2,6 +2,7 @@ import { CronOptions } from 'croner';
 import { Redis } from 'ioredis';
 import { LockOptions } from 'redis-semaphore';
 import { TaskGraphRunner } from './task-graph.js';
+import './_dependency-map.js';
 import './_task.js';
 import './error.js';
 
@@ -42,7 +43,7 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<s
     initial: unknown;
 }> {
     #private;
-    constructor({ id, taskGraphRunner, cron, runOnStartup, redis, }: {
+    constructor({ id, taskGraphRunner, cron, enabled, runOnStartup, redis, }: {
         id: string;
         taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
         cron: ({
@@ -52,6 +53,7 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<s
         }) & {
             options?: CronOptions;
         };
+        enabled?: boolean;
         runOnStartup?: boolean;
         redis?: {
             client: Redis;

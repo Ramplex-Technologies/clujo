@@ -24,6 +24,7 @@ type TaskOptions<TTaskId extends string, TTaskDependencies extends Record<string
      * The dependencies of the task.
      */
     dependencies?: readonly TPossibleTaskDependencyId[];
+    enabled?: boolean;
     /**
      * The retry policy for the task.
      *
@@ -66,17 +67,9 @@ declare class Task<TTaskDependencies extends Record<string, unknown>, TTaskConte
     #private;
     constructor(options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, TPossibleTaskDependencyId>);
     /**
-     * Adds a dependency to the task.
-     *
-     * @param taskId - The ID of the task to add as a dependency
+     * Return whether this task is enabled or not
      */
-    addDependency(taskId: string): void;
-    /**
-     * Gets the list of task dependencies.
-     *
-     * @returns An array of task IDs representing the dependencies
-     */
-    get dependencies(): string[];
+    get isEnabled(): boolean;
     /**
      * Gets the ID of the task.
      *
@@ -93,7 +86,7 @@ declare class Task<TTaskDependencies extends Record<string, unknown>, TTaskConte
      * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
      * @throws {Error} If the task execution fails after all retry attempts
      */
-    run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn>;
+    run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn | null>;
     /**
      * Gets the status of the task.
      *
@@ -121,7 +114,8 @@ type RetryPolicy = {
  * - running: Task is executing
  * - completed: Task has been executed successfully
  * - failed: Task has failed to execute
+ * - skipped: Task was skipped due to being disabled
  */
-type TaskStatus = "pending" | "running" | "completed" | "failed";
+type TaskStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
 export { Task, type TaskOptions };

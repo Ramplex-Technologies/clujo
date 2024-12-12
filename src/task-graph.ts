@@ -24,6 +24,7 @@
 -----------------------------------------------------------------------------*/
 
 import { Context } from "./_context";
+import { DependencyMap } from "./_dependency-map";
 import { Task, type TaskOptions } from "./_task";
 import { TaskError } from "./error";
 
@@ -54,6 +55,7 @@ export class TaskGraph<
         | undefined = undefined;
     readonly #dependencies: TTaskDependencies = Object.create(null);
     readonly #tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>();
+    readonly #taskDependencies = new DependencyMap();
     readonly #topologicalOrder: string[] = [];
 
     constructor(
@@ -146,7 +148,7 @@ export class TaskGraph<
             if (!dependentTask) {
                 throw new Error(`Dependency ${depId} not found for task ${taskId}`);
             }
-            task.addDependency(depId);
+            this.#taskDependencies.add(taskId, depId);
         }
 
         // biome-ignore lint/suspicious/noExplicitAny: the typing here is super annoying
@@ -185,6 +187,7 @@ export class TaskGraph<
             this.#contextValueOrFactory,
             this.#topologicalOrder,
             this.#tasks,
+            this.#taskDependencies,
             onTasksCompleted,
         );
     }
@@ -209,11 +212,7 @@ export class TaskGraph<
             }
             if (!visited.has(taskId)) {
                 temp.add(taskId);
-                const task = this.#tasks.get(taskId);
-                if (!task) {
-                    throw new Error(`Task ${taskId} not found`);
-                }
-                for (const depId of task.dependencies) {
+                for (const depId of this.#taskDependencies.get(taskId)) {
                     visit(depId);
                 }
                 temp.delete(taskId);
@@ -262,6 +261,7 @@ export class TaskGraphRunner<
         | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>);
     readonly #topologicalOrder: string[];
     readonly #tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>;
+    readonly #taskDependencies: DependencyMap;
     readonly #onTasksCompleted?: (
         ctx: TTaskContext,
         deps: TTaskDependencies,
@@ -279,6 +279,7 @@ export class TaskGraphRunner<
               ) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>),
         topologicalOrder: string[],
         tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>,
+        taskDependencies: DependencyMap,
         onTasksCompleted?: (
             ctx: TTaskContext,
             deps: TTaskDependencies,
@@ -289,6 +290,7 @@ export class TaskGraphRunner<
         this.#contextValueOrFactory = contextValueOrFactory;
         this.#topologicalOrder = topologicalOrder;
         this.#tasks = tasks;
+        this.#taskDependencies = taskDependencies;
         this.#onTasksCompleted = onTasksCompleted;
     }
 
@@ -296,7 +298,6 @@ export class TaskGraphRunner<
         if (this.#topologicalOrder.length === 0) {
             throw new Error("No tasks to run. Did you forget to call topologicalSort?");
         }
-
         let value: TInitialTaskContext | undefined;
         if (this.#contextValueOrFactory) {
             value =
@@ -307,8 +308,8 @@ export class TaskGraphRunner<
                           ) => TInitialTaskContext | Promise<TInitialTaskContext>
                       )(this.#dependencies)
                     : this.#contextValueOrFactory;
+            this.#context.reset(value);
         }
-        this.#context.reset(value);
 
         const completed = new Set<string>();
         const running = new Map<string, Promise<void>>();
@@ -318,7 +319,7 @@ export class TaskGraphRunner<
                 if (!task) {
                     throw new Error(`Task ${taskId} not found`);
                 }
-                return task.dependencies.length === 0;
+                return task.isEnabled && this.#taskDependencies.get(taskId).length === 0;
             }),
         );
 
@@ -344,10 +345,17 @@ export class TaskGraphRunner<
                 // Check if any dependent tasks are now ready to run
                 for (const [id, t] of this.#tasks) {
                     if (!completed.has(id) && !running.has(id)) {
-                        const canRun = t.dependencies.every((depId) => {
-                            const depTask = this.#tasks.get(depId);
-                            return depTask && completed.has(depId) && depTask.status === "completed";
-                        });
+                        const canRun =
+                            t.isEnabled &&
+                            this.#taskDependencies.get(t.id).every((depId) => {
+                                const depTask = this.#tasks.get(depId);
+                                return (
+                                    depTask &&
+                                    completed.has(depId) &&
+                                    depTask.status === "completed" &&
+                                    depTask.isEnabled
+                                );
+                            });
                         if (canRun) {
                             readyTasks.add(id);
                         }
@@ -370,6 +378,8 @@ export class TaskGraphRunner<
             } else {
                 // no tasks are running and we have not completed all tasks
                 // happens when tasks could not run due to failed dependencies
+                // or when there is a set of tasks that can not be run due to
+                // a disabled task
                 break;
             }
         }
@@ -392,7 +402,7 @@ export class TaskGraphRunner<
      *
      * @returns A promise that resolves to the completed context object when all tasks have completed.
      */
-    async run(): Promise<TTaskContext> {
+    async trigger(): Promise<TTaskContext> {
         try {
             return await this.#run();
         } finally {
@@ -428,11 +438,11 @@ export class TaskGraphRunner<
 
             // Print current task
             const prefix = level === 0 ? "└─ " : "├─ ";
-            output.push(`${getIndent(level)}${prefix}${taskId}`);
+            output.push(`${getIndent(level)}${prefix}${taskId}${task.isEnabled ? "" : " (Disabled)"}`);
 
             // Recursively print dependencies
             const newParentChain = new Set(parentChain).add(taskId);
-            const dependencies = Array.from(task.dependencies);
+            const dependencies = Array.from(this.#taskDependencies.get(task.id));
 
             dependencies.forEach((depId, index) => {
                 if (!visited.has(depId)) {
@@ -446,7 +456,7 @@ export class TaskGraphRunner<
 
         // Find root tasks (tasks with no dependencies)
         const rootTasks = Array.from(this.#tasks.entries())
-            .filter(([_, task]) => task.dependencies.length === 0)
+            .filter(([_, task]) => this.#taskDependencies.get(task.id).length === 0)
             .map(([id]) => id);
 
         // Print starting from each root task

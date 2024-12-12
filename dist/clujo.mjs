@@ -138,12 +138,14 @@ var Clujo = class {
   #cron;
   #taskGraphRunner;
   #redis;
+  #enabled;
   #hasStarted = false;
   #runOnStartup = false;
   constructor({
     id,
     taskGraphRunner,
     cron,
+    enabled,
     runOnStartup,
     redis
   }) {
@@ -162,6 +164,9 @@ var Clujo = class {
     if ("patterns" in cron && !cron.patterns) {
       throw new Error("cron.patterns is required");
     }
+    if (enabled && typeof enabled !== "boolean") {
+      throw new Error("enabled must be a boolean");
+    }
     if (runOnStartup && typeof runOnStartup !== "boolean") {
       throw new Error("runOnStartup must be a boolean.");
     }
@@ -172,6 +177,7 @@ var Clujo = class {
     this.#taskGraphRunner = taskGraphRunner;
     this.#cron = new Cron("pattern" in cron ? cron.pattern : cron.patterns, cron.options);
     this.#runOnStartup = Boolean(runOnStartup);
+    this.#enabled = enabled ?? true;
     this.#redis = redis;
   }
   get id() {
@@ -186,15 +192,19 @@ var Clujo = class {
       throw new Error("Cannot start a Clujo that has already started.");
     }
     const handler = async () => {
+      if (!this.#enabled) {
+        console.warn(`Clujo ${this.#id} is disabled. Skipping execution of the tasks`);
+        return;
+      }
       try {
         if (!this.#redis) {
-          await this.#taskGraphRunner.run();
+          await this.#taskGraphRunner.trigger();
         } else {
           var _stack = [];
           try {
             const lock = __using(_stack, await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions), true);
             if (lock) {
-              await this.#taskGraphRunner.run();
+              await this.#taskGraphRunner.trigger();
             }
           } catch (_) {
             var _error = _, _hasError = true;
@@ -239,7 +249,7 @@ var Clujo = class {
    * @returns The final context of the task graph.
    */
   async trigger() {
-    return await this.#taskGraphRunner.run();
+    return await this.#taskGraphRunner.trigger();
   }
   /**
    * Tries to acquire a lock from redis-semaphore. If the lock is acquired, the lock will be released when the lock is disposed.
@@ -260,6 +270,7 @@ var Clujo = class {
       [Symbol.asyncDispose]: async () => {
         try {
           await mutex.release();
+          console.debug(`Mutex released for Clujo ${this.id}`);
         } catch (error) {
           console.error(`Error releasing lock for Clujo ${this.#id}: ${error}`);
         }
