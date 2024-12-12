@@ -28,14 +28,14 @@
 export class DependencyMap {
     readonly #dependencies: Record<string, string[]> = Object.create(null);
 
-    add(key: string, value: string) {
+    add(key: string, value: string): void {
         if (!this.#dependencies[key]) {
             this.#dependencies[key] = [];
         }
         this.#dependencies[key].push(value);
     }
 
-    get(key: string) {
+    get(key: string): readonly string[] {
         return Object.freeze(this.#dependencies[key]?.slice() ?? []);
     }
 }
