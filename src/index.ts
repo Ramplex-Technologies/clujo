@@ -34,14 +34,12 @@
 import { Clujo } from "./clujo";
 import { TaskError } from "./error";
 import { Scheduler } from "./scheduler";
-import { Task } from "./task";
 import { TaskGraph } from "./task-graph";
 
-export { Clujo, Scheduler, TaskError, TaskGraph, Task };
+export { Clujo, Scheduler, TaskError, TaskGraph };
 export default {
     Clujo,
     Scheduler,
     TaskError,
     TaskGraph,
-    Task,
 };
