@@ -36,6 +36,6 @@ export class DependencyMap {
     }
 
     get(key: string) {
-        return this.#dependencies[key] ?? [];
+        return Object.freeze(this.#dependencies[key]?.slice() ?? []);
     }
 }
