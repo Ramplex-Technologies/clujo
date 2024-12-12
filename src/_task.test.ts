@@ -25,7 +25,7 @@
 
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { Task } from "./task";
+import { Task } from "./_task";
 
 test("Task Class", async (t) => {
     await t.test("constructor initializes task correctly", () => {
