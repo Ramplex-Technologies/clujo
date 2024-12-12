@@ -156,4 +156,139 @@ test("Clujo", async (t) => {
             });
         });
     });
+
+    await t.test("enabled flag", async (t) => {
+        await t.test("is enabled by default", async () => {
+            let executionCount = 0;
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    execute: async () => {
+                        executionCount++;
+                        return "result";
+                    },
+                })
+                .build();
+
+            const clujo = new Clujo({
+                id: "test",
+                taskGraphRunner: taskGraph,
+                cron: { pattern: "* * * * *" },
+                runOnStartup: true,
+            });
+
+            clujo.start();
+            // Give time for runOnStartup to execute
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            await clujo.stop();
+
+            assert.equal(executionCount, 1, "Task should execute when enabled by default");
+        });
+
+        await t.test("respects disabled flag", async () => {
+            let executionCount = 0;
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    execute: async () => {
+                        executionCount++;
+                        return "result";
+                    },
+                })
+                .build();
+
+            const clujo = new Clujo({
+                id: "test",
+                taskGraphRunner: taskGraph,
+                cron: { pattern: "* * * * *" },
+                enabled: false,
+                runOnStartup: true,
+            });
+
+            clujo.start();
+            // Give time for runOnStartup to execute
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            await clujo.stop();
+
+            assert.equal(executionCount, 0, "Task should not execute when disabled");
+        });
+
+        await t.test("validates enabled flag type", () => {
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    execute: () => Promise.resolve("result"),
+                })
+                .build();
+
+            assert.throws(
+                () =>
+                    new Clujo({
+                        id: "test",
+                        taskGraphRunner: taskGraph,
+                        cron: { pattern: "* * * * *" },
+                        // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
+                        enabled: "true" as any,
+                    }),
+                /enabled must be a boolean/,
+            );
+        });
+
+        await t.test("trigger executes regardless of enabled flag", async () => {
+            let executionCount = 0;
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    execute: async () => {
+                        executionCount++;
+                        return "result";
+                    },
+                })
+                .build();
+
+            const clujo = new Clujo({
+                id: "test",
+                taskGraphRunner: taskGraph,
+                cron: { pattern: "* * * * *" },
+                enabled: false,
+            });
+
+            await clujo.trigger();
+            assert.equal(executionCount, 1, "Manual trigger should execute even when disabled");
+        });
+
+        await t.test("logs warning when attempting scheduled run while disabled", async () => {
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    execute: () => Promise.resolve("result"),
+                })
+                .build();
+
+            const consoleWarnSpy = t.mock.method(console, "warn");
+
+            const clujo = new Clujo({
+                id: "test",
+                taskGraphRunner: taskGraph,
+                cron: { pattern: "* * * * *" },
+                enabled: false,
+                runOnStartup: true,
+            });
+
+            clujo.start();
+            // Give time for runOnStartup to execute
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            await clujo.stop();
+
+            assert.equal(
+                consoleWarnSpy.mock.calls.length,
+                1,
+                "Should log warning when attempting to run while disabled",
+            );
+            assert.equal(
+                consoleWarnSpy.mock.calls[0].arguments[0],
+                "Clujo test is disabled. Skipping execution of the tasks",
+            );
+        });
+    });
 });
