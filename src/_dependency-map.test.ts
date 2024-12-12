@@ -66,6 +66,17 @@ test("DependencyMap", async (t) => {
 
             assert.deepEqual(dependencyMap.get("task1"), ["dependency1", "dependency2"]);
         });
+
+        await t.test("returns independent arrays for different calls", () => {
+            const dependencyMap = new DependencyMap();
+            dependencyMap.add("task1", "dependency1");
+
+            const result1 = dependencyMap.get("task1");
+            const result2 = dependencyMap.get("task1");
+
+            assert.notEqual(result1, result2, "Should return different array instances");
+            assert.deepEqual(result1, result2, "Arrays should have same content");
+        });
     });
 
     await t.test("immutability", async (t) => {
