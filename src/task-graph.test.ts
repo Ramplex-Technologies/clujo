@@ -28,6 +28,7 @@ import test from "node:test";
 import { DependencyMap } from "./_dependency-map";
 import type { TaskOptions } from "./_task";
 import { TaskGraph, TaskGraphRunner } from "./task-graph";
+import type { TaskError } from "./error";
 
 test("TaskGraph", async (t) => {
     await t.test("constructor validates dependencies input", async (t) => {
@@ -547,5 +548,267 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
         assert.ok(executionOrder.indexOf("async2") > executionOrder.indexOf("sync1"));
         assert.ok(executionOrder.indexOf("sync2") > executionOrder.indexOf("sync1"));
         assert.equal(executionOrder[executionOrder.length - 1], "finalTask");
+    });
+
+    await t.test("enabled flag behavior", async (t) => {
+        await t.test("tasks are enabled by default", async () => {
+            const executionOrder: string[] = [];
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    execute: () => {
+                        executionOrder.push("task1");
+                        return "result1";
+                    },
+                })
+                .build();
+
+            await taskGraph.trigger();
+            assert.deepEqual(executionOrder, ["task1"]);
+        });
+
+        await t.test("disabled task is skipped", async () => {
+            const executionOrder: string[] = [];
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    enabled: false,
+                    execute: () => {
+                        executionOrder.push("task1");
+                        return "result1";
+                    },
+                })
+                .build();
+
+            const result = await taskGraph.trigger();
+            assert.deepEqual(executionOrder, []);
+            assert.deepEqual(result, { initial: undefined });
+        });
+
+        await t.test("disabled task prevents dependent tasks from running", async () => {
+            const executionOrder: string[] = [];
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    enabled: false,
+                    execute: () => {
+                        executionOrder.push("task1");
+                        return "result1";
+                    },
+                })
+                .addTask({
+                    id: "task2",
+                    dependencies: ["task1"],
+                    execute: () => {
+                        executionOrder.push("task2");
+                        return "result2";
+                    },
+                })
+                .build();
+
+            const result = await taskGraph.trigger();
+            assert.deepEqual(executionOrder, []);
+            assert.deepEqual(result, { initial: undefined });
+        });
+
+        await t.test("disabled task in middle of chain prevents downstream tasks", async () => {
+            const executionOrder: string[] = [];
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    execute: () => {
+                        executionOrder.push("task1");
+                        return "result1";
+                    },
+                })
+                .addTask({
+                    id: "task2",
+                    dependencies: ["task1"],
+                    enabled: false,
+                    execute: () => {
+                        executionOrder.push("task2");
+                        return "result2";
+                    },
+                })
+                .addTask({
+                    id: "task3",
+                    dependencies: ["task2"],
+                    execute: () => {
+                        executionOrder.push("task3");
+                        return "result3";
+                    },
+                })
+                .build();
+
+            const result = await taskGraph.trigger();
+            assert.deepEqual(executionOrder, ["task1"]);
+            assert.deepEqual(result, {
+                initial: undefined,
+                task1: "result1",
+            });
+        });
+
+        await t.test("disabled task only affects its dependency chain", async () => {
+            const executionOrder: string[] = [];
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "start",
+                    execute: () => {
+                        executionOrder.push("start");
+                        return "start";
+                    },
+                })
+                .addTask({
+                    id: "branch1Task",
+                    dependencies: ["start"],
+                    enabled: false,
+                    execute: () => {
+                        executionOrder.push("branch1Task");
+                        return "branch1";
+                    },
+                })
+                .addTask({
+                    id: "branch1Dependent",
+                    dependencies: ["branch1Task"],
+                    execute: () => {
+                        executionOrder.push("branch1Dependent");
+                        return "branch1Dependent";
+                    },
+                })
+                .addTask({
+                    id: "branch2Task",
+                    dependencies: ["start"],
+                    execute: () => {
+                        executionOrder.push("branch2Task");
+                        return "branch2";
+                    },
+                })
+                .addTask({
+                    id: "branch2Dependent",
+                    dependencies: ["branch2Task"],
+                    execute: () => {
+                        executionOrder.push("branch2Dependent");
+                        return "branch2Dependent";
+                    },
+                })
+                .build();
+
+            const result = await taskGraph.trigger();
+            assert.deepEqual(executionOrder, ["start", "branch2Task", "branch2Dependent"]);
+            assert.deepEqual(result, {
+                initial: undefined,
+                start: "start",
+                branch2Task: "branch2",
+                branch2Dependent: "branch2Dependent",
+            });
+        });
+
+        await t.test("multiple disabled tasks in different chains", async () => {
+            const executionOrder: string[] = [];
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "root",
+                    execute: () => {
+                        executionOrder.push("root");
+                        return "root";
+                    },
+                })
+                .addTask({
+                    id: "chain1-1",
+                    dependencies: ["root"],
+                    enabled: false,
+                    execute: () => {
+                        executionOrder.push("chain1-1");
+                        return "chain1-1";
+                    },
+                })
+                .addTask({
+                    id: "chain1-2",
+                    dependencies: ["chain1-1"],
+                    execute: () => {
+                        executionOrder.push("chain1-2");
+                        return "chain1-2";
+                    },
+                })
+                .addTask({
+                    id: "chain2-1",
+                    dependencies: ["root"],
+                    execute: () => {
+                        executionOrder.push("chain2-1");
+                        return "chain2-1";
+                    },
+                })
+                .addTask({
+                    id: "chain2-2",
+                    dependencies: ["chain2-1"],
+                    enabled: false,
+                    execute: () => {
+                        executionOrder.push("chain2-2");
+                        return "chain2-2";
+                    },
+                })
+                .addTask({
+                    id: "chain2-3",
+                    dependencies: ["chain2-2"],
+                    execute: () => {
+                        executionOrder.push("chain2-3");
+                        return "chain2-3";
+                    },
+                })
+                .build();
+
+            const result = await taskGraph.trigger();
+            assert.deepEqual(executionOrder, ["root", "chain2-1"]);
+            assert.deepEqual(result, {
+                initial: undefined,
+                root: "root",
+                "chain2-1": "chain2-1",
+            });
+        });
+
+        await t.test("disabled task with error handling", async () => {
+            const executionOrder: string[] = [];
+            let errors: unknown[] = [];
+
+            const taskGraph = new TaskGraph()
+                .addTask({
+                    id: "task1",
+                    execute: () => {
+                        executionOrder.push("task1");
+                        throw new Error("Task 1 failed");
+                    },
+                })
+                .addTask({
+                    id: "task2",
+                    enabled: false,
+                    execute: () => {
+                        executionOrder.push("task2");
+                        return "result2";
+                    },
+                })
+                .addTask({
+                    id: "task3",
+                    execute: () => {
+                        executionOrder.push("task3");
+                        return "result3";
+                    },
+                })
+                .build({
+                    onTasksCompleted: (_, __, taskErrors) => {
+                        if (taskErrors) {
+                            errors = taskErrors;
+                        }
+                    },
+                });
+
+            const result = await taskGraph.trigger();
+            assert.deepEqual(executionOrder, ["task1", "task3"]);
+            assert.deepEqual(result, {
+                initial: undefined,
+                task3: "result3",
+            });
+            assert.equal(errors.length, 1);
+            assert.equal((errors[0] as TaskError).id, "task1");
+        });
     });
 });
