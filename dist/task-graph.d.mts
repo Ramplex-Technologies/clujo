@@ -1,3 +1,4 @@
+import { DependencyMap } from './_dependency-map.mjs';
 import { TaskOptions, Task } from './_task.mjs';
 import { TaskError } from './error.mjs';
 
@@ -75,7 +76,7 @@ declare class TaskGraphRunner<TTaskDependencies extends Record<string, unknown>,
     initial: unknown;
 }> {
     #private;
-    constructor(dependencies: TTaskDependencies, contextValueOrFactory: undefined | TInitialTaskContext | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>), topologicalOrder: string[], tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>, onTasksCompleted?: (ctx: TTaskContext, deps: TTaskDependencies, errors: TaskError[] | null) => void | Promise<void>);
+    constructor(dependencies: TTaskDependencies, contextValueOrFactory: undefined | TInitialTaskContext | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>), topologicalOrder: string[], tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>, taskDependencies: DependencyMap, onTasksCompleted?: (ctx: TTaskContext, deps: TTaskDependencies, errors: TaskError[] | null) => void | Promise<void>);
     /**
      * Runs the tasks in the graph in topological order.
      * Tasks are run concurrently when possible.
@@ -83,7 +84,7 @@ declare class TaskGraphRunner<TTaskDependencies extends Record<string, unknown>,
      *
      * @returns A promise that resolves to the completed context object when all tasks have completed.
      */
-    run(): Promise<TTaskContext>;
+    trigger(): Promise<TTaskContext>;
     printTaskGraph(clujoId: string): string;
 }
 

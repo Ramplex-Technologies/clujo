@@ -5,6 +5,7 @@ import { TaskGraph } from './task-graph.js';
 import 'croner';
 import 'ioredis';
 import 'redis-semaphore';
+import './_dependency-map.js';
 import './_task.js';
 
 declare const _default: {

@@ -25,7 +25,6 @@ __export(task_exports, {
 module.exports = __toCommonJS(task_exports);
 var import_node_util = require("util");
 var Task = class {
-  #dependencies = [];
   #options;
   #retryPolicy = { maxRetries: 0, retryDelayMs: 0 };
   #status = "pending";
@@ -37,23 +36,10 @@ var Task = class {
     this.#options = options;
   }
   /**
-   * Adds a dependency to the task.
-   *
-   * @param taskId - The ID of the task to add as a dependency
+   * Return whether this task is enabled or not
    */
-  addDependency(taskId) {
-    if (taskId === this.#options.id) {
-      throw new Error("A task cannot depend on itself");
-    }
-    this.#dependencies.push(taskId);
-  }
-  /**
-   * Gets the list of task dependencies.
-   *
-   * @returns An array of task IDs representing the dependencies
-   */
-  get dependencies() {
-    return this.#dependencies;
+  get isEnabled() {
+    return this.#options.enabled === void 0 || this.#options.enabled;
   }
   /**
    * Gets the ID of the task.
@@ -74,6 +60,10 @@ var Task = class {
    * @throws {Error} If the task execution fails after all retry attempts
    */
   async run(deps, ctx) {
+    if (!this.isEnabled) {
+      this.#status = "skipped";
+      return null;
+    }
     const input = {
       deps,
       ctx
