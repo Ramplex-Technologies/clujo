@@ -26,7 +26,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DependencyMap } from "./_dependency-map";
-import type { TaskOptions } from "./task";
+import type { TaskOptions } from "./_task";
 import { TaskGraph, TaskGraphRunner } from "./task-graph";
 
 test("TaskGraph", async (t) => {
