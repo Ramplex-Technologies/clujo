@@ -289,10 +289,10 @@ await t.test("trigger skips tree of disabled tasks", async () => {
 
 ## Visualizing Task Dependencies
 
-You can visualize the task dependency structure when starting a Clujo instance by using the `printTaskGraph` option:
+You can visualize the task graph dependency structure by using the `printTaskGraph` option on the `TaskGraphRunner`:
 
 ```typescript
-clujo.start({ printTaskGraph: true });
+taskGraphRunner.printTaskGraph();
 ```
 
 This will print a visual representation of your task graph to the console. For example:

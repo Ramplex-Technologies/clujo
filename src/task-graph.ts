@@ -410,13 +410,13 @@ export class TaskGraphRunner<
         }
     }
 
-    printTaskGraph(clujoId: string): string {
+    printTaskGraph(): string {
         if (this.#tasks.size === 0) {
             return "Empty task graph";
         }
 
         const visited = new Set<string>();
-        const output: string[] = [`${clujoId} Structure:`];
+        const output: string[] = [];
 
         // Helper function to create indentation
         const getIndent = (level: number) => "  ".repeat(level);

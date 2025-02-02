@@ -43,7 +43,7 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<s
     initial: unknown;
 }> {
     #private;
-    constructor({ id, taskGraphRunner, cron, enabled, runOnStartup, redis, }: {
+    constructor({ id, taskGraphRunner, cron, enabled, runOnStartup, redis, logger, }: {
         id: string;
         taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
         cron: ({
@@ -59,15 +59,14 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<s
             client: Redis;
             lockOptions?: LockOptions;
         };
+        logger?: ClujoLogger;
     });
     get id(): string;
     /**
      * Starts the cron job, which will execute the task graph according to the cron schedule.
      * @throws An error if the Clujo has already started.
      */
-    start(options?: {
-        printTaskGraph?: boolean;
-    }): void;
+    start(): void;
     /**
      * Stops the cron job and prevents any further executions of the task graph.
      * If the task graph is currently executing, it will be allowed to finish for up to the specified timeout.
@@ -84,6 +83,10 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<s
      * @returns The final context of the task graph.
      */
     trigger(): Promise<TTaskContext>;
+}
+interface ClujoLogger {
+    log(message: string): void;
+    error(message: string): void;
 }
 
 export { Clujo };

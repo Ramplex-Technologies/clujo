@@ -139,6 +139,7 @@ var Clujo = class {
   #taskGraphRunner;
   #redis;
   #enabled;
+  #logger;
   #hasStarted = false;
   #runOnStartup = false;
   constructor({
@@ -147,7 +148,8 @@ var Clujo = class {
     cron,
     enabled,
     runOnStartup,
-    redis
+    redis,
+    logger
   }) {
     if (!id) {
       throw new Error("Clujo ID is required.");
@@ -179,6 +181,7 @@ var Clujo = class {
     this.#runOnStartup = Boolean(runOnStartup);
     this.#enabled = enabled ?? true;
     this.#redis = redis;
+    this.#logger = logger;
   }
   get id() {
     return this.#id;
@@ -187,13 +190,13 @@ var Clujo = class {
    * Starts the cron job, which will execute the task graph according to the cron schedule.
    * @throws An error if the Clujo has already started.
    */
-  start(options) {
+  start() {
     if (this.#hasStarted) {
       throw new Error("Cannot start a Clujo that has already started.");
     }
     const handler = async () => {
       if (!this.#enabled) {
-        console.warn(`Clujo ${this.#id} is disabled. Skipping execution of the tasks`);
+        this.#logger?.log(`Clujo ${this.#id} is disabled. Skipping execution of the tasks`);
         return;
       }
       try {
@@ -214,16 +217,11 @@ var Clujo = class {
           }
         }
       } catch (error) {
-        console.error(`Clujo ${this.#id} failed: ${error}`);
+        this.#logger?.error(`Clujo ${this.#id} failed to trigger: ${error}`);
       }
     };
     this.#cron.start(handler);
     this.#hasStarted = true;
-    if (options?.printTaskGraph) {
-      console.log();
-      console.log(this.#taskGraphRunner.printTaskGraph(this.#id));
-      console.log();
-    }
     if (this.#runOnStartup) {
       this.#cron.trigger();
     }
@@ -263,6 +261,7 @@ var Clujo = class {
     const mutex = new Mutex(redis, this.#id, lockOptions);
     const lock = await mutex.tryAcquire();
     if (!lock) {
+      this.#logger?.log(`Could not acquire mutex for Clujo ${this.#id} - another instance is likely running`);
       return null;
     }
     return {
@@ -270,9 +269,9 @@ var Clujo = class {
       [Symbol.asyncDispose]: async () => {
         try {
           await mutex.release();
-          console.debug(`Mutex released for Clujo ${this.id}`);
+          this.#logger?.log(`Mutex released for Clujo ${this.id}`);
         } catch (error) {
-          console.error(`Error releasing lock for Clujo ${this.#id}: ${error}`);
+          this.#logger?.error(`Error releasing lock for Clujo ${this.#id}: ${error}`);
         }
       }
     };

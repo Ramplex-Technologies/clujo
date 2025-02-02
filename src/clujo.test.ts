@@ -185,7 +185,7 @@ test("Clujo", async (t) => {
             assert.equal(executionCount, 1, "Task should execute when enabled by default");
         });
 
-        await t.test("respects disabled flag", async () => {
+        await t.test("respects disabled flag and logs message", async () => {
             let executionCount = 0;
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -197,12 +197,19 @@ test("Clujo", async (t) => {
                 })
                 .build();
 
+            const logs: string[] = [];
+            const logger = {
+                log: (message: string) => logs.push(message),
+                error: (message: string) => logs.push(message),
+            };
+
             const clujo = new Clujo({
                 id: "test",
                 taskGraphRunner: taskGraph,
                 cron: { pattern: "* * * * *" },
                 enabled: false,
                 runOnStartup: true,
+                logger,
             });
 
             clujo.start();
@@ -211,6 +218,12 @@ test("Clujo", async (t) => {
             await clujo.stop();
 
             assert.equal(executionCount, 0, "Task should not execute when disabled");
+            assert.equal(logs.length, 1, "Should log disabled message");
+            assert.equal(
+                logs[0],
+                "Clujo test is disabled. Skipping execution of the tasks",
+                "Should log correct disabled message",
+            );
         });
 
         await t.test("validates enabled flag type", () => {
@@ -265,7 +278,11 @@ test("Clujo", async (t) => {
                 })
                 .build();
 
-            const consoleWarnSpy = t.mock.method(console, "warn");
+            const logs: string[] = [];
+            const logger = {
+                log: (message: string) => logs.push(message),
+                error: (message: string) => logs.push(message),
+            };
 
             const clujo = new Clujo({
                 id: "test",
@@ -273,6 +290,7 @@ test("Clujo", async (t) => {
                 cron: { pattern: "* * * * *" },
                 enabled: false,
                 runOnStartup: true,
+                logger,
             });
 
             clujo.start();
@@ -280,14 +298,11 @@ test("Clujo", async (t) => {
             await new Promise((resolve) => setTimeout(resolve, 100));
             await clujo.stop();
 
+            assert.equal(logs.length, 1, "Should log warning when attempting to run while disabled");
             assert.equal(
-                consoleWarnSpy.mock.calls.length,
-                1,
-                "Should log warning when attempting to run while disabled",
-            );
-            assert.equal(
-                consoleWarnSpy.mock.calls[0].arguments[0],
+                logs[0],
                 "Clujo test is disabled. Skipping execution of the tasks",
+                "Should log correct disabled message",
             );
         });
     });

@@ -436,12 +436,12 @@ var TaskGraphRunner = class {
       this.#context.reset(void 0);
     }
   }
-  printTaskGraph(clujoId) {
+  printTaskGraph() {
     if (this.#tasks.size === 0) {
       return "Empty task graph";
     }
     const visited = /* @__PURE__ */ new Set();
-    const output = [`${clujoId} Structure:`];
+    const output = [];
     const getIndent = (level) => "  ".repeat(level);
     const printTask = (taskId, level = 0, parentChain = /* @__PURE__ */ new Set()) => {
       if (parentChain.has(taskId)) {
