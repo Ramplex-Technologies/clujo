@@ -343,6 +343,45 @@ const tasks = new TaskGraph({
 The context and dependencies are type-safe, ensuring you can only access properties that actually exist.
 Tasks can access their dependencies' results through the context object, and all tasks have access to the initial context (when set) under `ctx.initial`.
 
+## Logging
+
+Clujo supports custom logging through a logger interface. The logger can be provided to the Clujo instance to capture various events and errors during execution.
+
+```typescript
+// Define a logger that implements the ClujoLogger interface
+interface ClujoLogger {
+    log(message: string): void;
+    error(message: string): void;
+}
+
+// Example implementation using console
+const consoleLogger = {
+    log: (message) => console.log(`[Clujo] ${message}`),
+    error: (message) => console.error(`[Clujo] ${message}`)
+};
+
+// Or a custom logger
+const customLogger = {
+    log: (message) => myLoggingService.info(message),
+    error: (message) => myLoggingService.error(message)
+};
+
+// Provide the logger to Clujo
+const clujo = new Clujo({
+    id: "myClujoJob",
+    taskGraphRunner: tasks,
+    cron: { pattern: "*/5 * * * *" },
+    logger: customLogger
+});
+```
+
+The logger will capture various events such as:
+- Task execution failures
+- Distributed lock acquisition and release events
+- Disabled execution attempts
+
+If no logger is provided, Clujo will operate silently without logging any events.
+
 ## Using Redis for Distributed Locking
 
 When an `ioredis` client is provided, Clujo will use it to acquire a lock for each task execution. This ensures that tasks are not executed concurrently in a distributed environment.
