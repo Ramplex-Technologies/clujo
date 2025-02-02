@@ -27,6 +27,7 @@ Coming soon: validated bun support.
     - [Disabling a Task](#disabling-a-task)
   - [Visualizing Task Dependencies](#visualizing-task-dependencies)
   - [Setting Context and Dependencies](#setting-context-and-dependencies)
+  - [Logging](#logging)
   - [Using Redis for Distributed Locking](#using-redis-for-distributed-locking)
   - [Running Tasks on Startup](#running-tasks-on-startup)
   - [Error Handling](#error-handling)
