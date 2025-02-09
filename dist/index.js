@@ -180,6 +180,7 @@ var Clujo = class {
     redis,
     logger
   }) {
+    logger?.debug?.(`Initializing Clujo instance with ID: ${id}`);
     if (!id) {
       throw new Error("Clujo ID is required.");
     }
@@ -204,6 +205,15 @@ var Clujo = class {
     if (redis && !redis.client) {
       throw new Error("Redis client is required in redis input.");
     }
+    if (redis) {
+      logger?.debug?.(`Redis configuration provided for Clujo ${id}`);
+    }
+    if (enabled === false) {
+      logger?.log?.(`Clujo instance ${id} initialized in disabled state`);
+    }
+    if (runOnStartup) {
+      logger?.debug?.(`Clujo ${id} configured to run on startup`);
+    }
     this.#id = id;
     this.#taskGraphRunner = taskGraphRunner;
     this.#cron = new Cron("pattern" in cron ? cron.pattern : cron.patterns, cron.options);
@@ -211,6 +221,7 @@ var Clujo = class {
     this.#enabled = enabled ?? true;
     this.#redis = redis;
     this.#logger = logger;
+    logger?.log?.(`Clujo instance ${id} successfully initialized`);
   }
   get id() {
     return this.#id;
@@ -220,23 +231,33 @@ var Clujo = class {
    * @throws An error if the Clujo has already started.
    */
   start() {
+    this.#logger?.debug?.(`Attempting to start Clujo ${this.#id}`);
     if (this.#hasStarted) {
+      this.#logger?.error?.(`Failed to start Clujo ${this.#id}: already started`);
       throw new Error("Cannot start a Clujo that has already started.");
     }
     const handler = async () => {
+      this.#logger?.debug?.(`Cron trigger received for Clujo ${this.#id}`);
       if (!this.#enabled) {
-        this.#logger?.log(`Clujo ${this.#id} is disabled. Skipping execution of the tasks`);
+        this.#logger?.log?.(`Skipping execution - Clujo ${this.#id} is disabled`);
         return;
       }
       try {
         if (!this.#redis) {
+          this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
           await this.#taskGraphRunner.trigger();
+          this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
         } else {
           var _stack = [];
           try {
+            this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
             const lock = __using(_stack, await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions), true);
             if (lock) {
+              this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
               await this.#taskGraphRunner.trigger();
+              this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+            } else {
+              this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
             }
           } catch (_) {
             var _error = _, _hasError = true;
@@ -246,13 +267,14 @@ var Clujo = class {
           }
         }
       } catch (error) {
-        this.#logger?.error(`Clujo ${this.#id} failed to trigger: ${error}`);
+        this.#logger?.error?.(`Task graph execution failed for Clujo ${this.#id}: ${error}`);
       }
     };
     this.#cron.start(handler);
     this.#hasStarted = true;
+    this.#logger?.log?.(`Clujo ${this.#id} started successfully`);
     if (this.#runOnStartup) {
-      this.#cron.trigger();
+      void this.#cron.trigger();
     }
   }
   /**
@@ -264,10 +286,18 @@ var Clujo = class {
    * @throws An error if the Clujo has not started.
    */
   async stop(timeout = 5e3) {
+    this.#logger?.debug?.(`Attempting to stop Clujo ${this.#id} with timeout ${timeout}ms`);
     if (!this.#hasStarted) {
+      this.#logger?.error?.(`Failed to stop Clujo ${this.#id}: not started`);
       throw new Error("Cannot stop a Clujo that has not started.");
     }
-    await this.#cron.stop(timeout);
+    try {
+      await this.#cron.stop(timeout);
+      this.#logger?.log?.(`Clujo ${this.#id} stopped successfully`);
+    } catch (error) {
+      this.#logger?.error?.(`Failed to stop Clujo ${this.#id}: ${error}`);
+      throw error;
+    }
   }
   /**
    * Trigger an execution of the task graph immediately, independent of the cron schedule.
@@ -276,7 +306,15 @@ var Clujo = class {
    * @returns The final context of the task graph.
    */
   async trigger() {
-    return await this.#taskGraphRunner.trigger();
+    this.#logger?.debug?.(`Manual trigger initiated for Clujo ${this.#id}`);
+    try {
+      const result = await this.#taskGraphRunner.trigger();
+      this.#logger?.log?.(`Manual trigger completed successfully for Clujo ${this.#id}`);
+      return result;
+    } catch (error) {
+      this.#logger?.error?.(`Manual trigger failed for Clujo ${this.#id}: ${error}`);
+      throw error;
+    }
   }
   /**
    * Tries to acquire a lock from redis-semaphore. If the lock is acquired, the lock will be released when the lock is disposed.
@@ -287,23 +325,42 @@ var Clujo = class {
    * @returns An AsyncDisposable lock if it was acquired, otherwise null.
    */
   async #tryAcquire(redis, lockOptions) {
-    const mutex = new import_redis_semaphore.Mutex(redis, this.#id, lockOptions);
-    const lock = await mutex.tryAcquire();
-    if (!lock) {
-      this.#logger?.log(`Could not acquire mutex for Clujo ${this.#id} - another instance is likely running`);
-      return null;
-    }
-    return {
-      mutex,
-      [Symbol.asyncDispose]: async () => {
-        try {
-          await mutex.release();
-          this.#logger?.log(`Mutex released for Clujo ${this.id}`);
-        } catch (error) {
-          this.#logger?.error(`Error releasing lock for Clujo ${this.#id}: ${error}`);
-        }
+    this.#logger?.debug?.(`Attempting to acquire mutex for Clujo ${this.#id}`);
+    const mutex = new import_redis_semaphore.Mutex(redis, this.#id, {
+      acquireAttemptsLimit: 1,
+      lockTimeout: 3e4,
+      refreshInterval: 24e3,
+      onLockLost: (lockLostError) => {
+        this.#logger?.error?.(`Lock lost for Clujo ${this.#id}: ${lockLostError.message}`);
+        throw lockLostError;
+      },
+      ...lockOptions
+    });
+    try {
+      const lock = await mutex.tryAcquire();
+      if (!lock) {
+        this.#logger?.debug?.(
+          `Could not acquire mutex for Clujo ${this.#id} - another instance is likely running`
+        );
+        return null;
       }
-    };
+      this.#logger?.debug?.(`Successfully acquired mutex for Clujo ${this.#id}`);
+      return {
+        mutex,
+        [Symbol.asyncDispose]: async () => {
+          try {
+            await mutex.release();
+            this.#logger?.debug?.(`Successfully released mutex for Clujo ${this.#id}`);
+          } catch (error) {
+            this.#logger?.error?.(`Failed to release mutex for Clujo ${this.#id}: ${error}`);
+            throw error;
+          }
+        }
+      };
+    } catch (error) {
+      this.#logger?.error?.(`Failed to acquire mutex for Clujo ${this.#id}: ${error}`);
+      throw error;
+    }
   }
 };
 

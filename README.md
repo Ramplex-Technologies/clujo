@@ -346,24 +346,27 @@ Tasks can access their dependencies' results through the context object, and all
 
 ## Logging
 
-Clujo supports custom logging through a logger interface. The logger can be provided to the Clujo instance to capture various events and errors during execution.
+Clujo supports custom logging through a logger interface. The logger can be provided to the Clujo instance to capture various events and errors during execution. Each log level is optional, and you can choose to implement only the methods you need.
 
 ```typescript
 // Define a logger that implements the ClujoLogger interface
 interface ClujoLogger {
-    log(message: string): void;
-    error(message: string): void;
+    debug?: (message: string): void;
+    log?: (message: string): void;
+    error?: (message: string): void;
 }
 
 // Example implementation using console
 const consoleLogger = {
     log: (message) => console.log(`[Clujo] ${message}`),
+    debug: (message) => console.debug(`[Clujo] ${message}`),
     error: (message) => console.error(`[Clujo] ${message}`)
 };
 
 // Or a custom logger
 const customLogger = {
     log: (message) => myLoggingService.info(message),
+    debug: (message) => myLoggingService.debug(message),
     error: (message) => myLoggingService.error(message)
 };
 

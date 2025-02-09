@@ -23,59 +23,53 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import { strict as assert } from "node:assert";
-import { describe, mock, test } from "node:test";
+import { describe, expect, test, vi } from "vitest";
 import type { Clujo } from "../src/clujo";
 import { Scheduler } from "../src/scheduler";
 
-describe("Scheduler Class", async () => {
+describe("Scheduler Class", () => {
     test("addJob adds a job successfully", () => {
         const scheduler = new Scheduler();
         const mockJob = {
             id: "job1",
-            start: mock.fn(),
-            stop: mock.fn(() => Promise.resolve()),
+            start: vi.fn(),
+            stop: vi.fn(() => Promise.resolve()),
         } as unknown as Clujo<Record<string, unknown>, { initial: unknown }>;
 
         scheduler.addJob(mockJob);
 
-        assert.equal(scheduler.jobs.length, 1);
-        assert.equal(scheduler.jobs[0], mockJob);
+        expect(scheduler.jobs).toHaveLength(1);
+        expect(scheduler.jobs[0]).toBe(mockJob);
     });
 
     test("addJob throws error when adding duplicate job", () => {
         const scheduler = new Scheduler();
         const mockJob = {
             id: "job1",
-            start: mock.fn(),
-            stop: mock.fn(() => Promise.resolve()),
+            start: vi.fn(),
+            stop: vi.fn(() => Promise.resolve()),
         } as unknown as Clujo<Record<string, unknown>, { initial: unknown }>;
 
         scheduler.addJob(mockJob);
 
-        assert.throws(
-            () => {
-                scheduler.addJob(mockJob);
-            },
-            {
-                message: "Job with id job1 is already added to the scheduler.",
-            },
-        );
+        expect(() => {
+            scheduler.addJob(mockJob);
+        }).toThrow("Job with id job1 is already added to the scheduler.");
     });
 
     test("start starts all jobs without Redis", () => {
         const scheduler = new Scheduler();
         const mockJob1 = {
             id: "job1",
-            start: mock.fn(),
-            stop: mock.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
+            start: vi.fn(),
+            stop: vi.fn(() => Promise.resolve()),
+            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         } as any;
         const mockJob2 = {
             id: "job2",
-            start: mock.fn(),
-            stop: mock.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
+            start: vi.fn(),
+            stop: vi.fn(() => Promise.resolve()),
+            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         } as any;
 
         scheduler.addJob(mockJob1);
@@ -83,23 +77,23 @@ describe("Scheduler Class", async () => {
 
         scheduler.start();
 
-        assert.equal(mockJob1.start.mock.calls.length, 1);
-        assert.equal(mockJob2.start.mock.calls.length, 1);
+        expect(mockJob1.start).toHaveBeenCalledTimes(1);
+        expect(mockJob2.start).toHaveBeenCalledTimes(1);
     });
 
     test("stop stops all jobs", async () => {
         const scheduler = new Scheduler();
         const mockJob1 = {
             id: "job1",
-            start: mock.fn(),
-            stop: mock.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
+            start: vi.fn(),
+            stop: vi.fn(() => Promise.resolve()),
+            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         } as any;
         const mockJob2 = {
             id: "job2",
-            start: mock.fn(),
-            stop: mock.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
+            start: vi.fn(),
+            stop: vi.fn(() => Promise.resolve()),
+            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         } as any;
 
         scheduler.addJob(mockJob1);
@@ -107,26 +101,26 @@ describe("Scheduler Class", async () => {
 
         await scheduler.stop();
 
-        assert.equal(mockJob1.stop.mock.calls.length, 1);
-        assert.equal(mockJob2.stop.mock.calls.length, 1);
-        assert.equal(mockJob1.stop.mock.calls[0].arguments[0], 5000);
-        assert.equal(mockJob2.stop.mock.calls[0].arguments[0], 5000);
+        expect(mockJob1.stop).toHaveBeenCalledTimes(1);
+        expect(mockJob2.stop).toHaveBeenCalledTimes(1);
+        expect(mockJob1.stop).toHaveBeenCalledWith(5000);
+        expect(mockJob2.stop).toHaveBeenCalledWith(5000);
     });
 
     test("stop uses custom timeout", async () => {
         const scheduler = new Scheduler();
         const mockJob = {
             id: "job1",
-            start: mock.fn(),
-            stop: mock.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: did not wanna deal with this
+            start: vi.fn(),
+            stop: vi.fn(() => Promise.resolve()),
+            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         } as any;
 
         scheduler.addJob(mockJob);
 
         await scheduler.stop(10000);
 
-        assert.equal(mockJob.stop.mock.calls.length, 1);
-        assert.equal(mockJob.stop.mock.calls[0].arguments[0], 10000);
+        expect(mockJob.stop).toHaveBeenCalledTimes(1);
+        expect(mockJob.stop).toHaveBeenCalledWith(10000);
     });
 });

@@ -22,15 +22,14 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import assert from "node:assert/strict";
-import test from "node:test";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { Clujo } from "./clujo";
 import { TaskGraph } from "./task-graph";
 
-test("Clujo", async (t) => {
-    await t.test("constructor validation", async (t) => {
-        await t.test("throws when id is not provided", () => {
-            assert.throws(
+describe("Clujo", () => {
+    describe("constructor validation", () => {
+        test("throws when id is not provided", () => {
+            expect(
                 () =>
                     new Clujo({
                         // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
@@ -39,12 +38,11 @@ test("Clujo", async (t) => {
                         taskGraphRunner: {} as any,
                         cron: { pattern: "* * * * *" },
                     }),
-                /Clujo ID is required/,
-            );
+            ).toThrow(/Clujo ID is required/);
         });
 
-        await t.test("throws when taskGraphRunner is not provided", () => {
-            assert.throws(
+        test("throws when taskGraphRunner is not provided", () => {
+            expect(
                 () =>
                     new Clujo({
                         id: "test",
@@ -52,12 +50,11 @@ test("Clujo", async (t) => {
                         taskGraphRunner: null as any,
                         cron: { pattern: "* * * * *" },
                     }),
-                /taskGraphRunner is required/,
-            );
+            ).toThrow(/taskGraphRunner is required/);
         });
 
-        await t.test("throws when cron pattern is not provided", () => {
-            assert.throws(
+        test("throws when cron pattern is not provided", () => {
+            expect(
                 () =>
                     new Clujo({
                         id: "test",
@@ -65,13 +62,12 @@ test("Clujo", async (t) => {
                         taskGraphRunner: {} as any,
                         cron: { pattern: "" },
                     }),
-                /cron.pattern is required/,
-            );
+            ).toThrow(/cron.pattern is required/);
         });
     });
 
-    await t.test("start method", async (t) => {
-        await t.test("throws when already started", async () => {
+    describe("start method", () => {
+        test("throws when already started", () => {
             const taskGraph = new TaskGraph()
                 .addTask({
                     id: "task1",
@@ -86,13 +82,13 @@ test("Clujo", async (t) => {
             });
 
             clujo.start();
-            assert.throws(() => clujo.start(), /Cannot start a Clujo that has already started/);
+            expect(() => clujo.start()).toThrow(/Cannot start a Clujo that has already started/);
             clujo.stop();
         });
     });
 
-    await t.test("stop method", async (t) => {
-        await t.test("throws when not started", async () => {
+    describe("stop method", () => {
+        test("throws when not started", async () => {
             const taskGraph = new TaskGraph()
                 .addTask({
                     id: "task1",
@@ -106,10 +102,10 @@ test("Clujo", async (t) => {
                 cron: { pattern: "* * * * *" },
             });
 
-            await assert.rejects(clujo.stop(), /Cannot stop a Clujo that has not started/);
+            await expect(clujo.stop()).rejects.toThrow(/Cannot stop a Clujo that has not started/);
         });
 
-        await t.test("stops successfully", async () => {
+        test("stops successfully", async () => {
             const taskGraph = new TaskGraph()
                 .addTask({
                     id: "task1",
@@ -124,12 +120,12 @@ test("Clujo", async (t) => {
             });
 
             clujo.start();
-            await assert.doesNotReject(clujo.stop());
+            await expect(clujo.stop()).resolves.not.toThrow();
         });
     });
 
-    await t.test("trigger method", async (t) => {
-        await t.test("executes task graph and returns context", async () => {
+    describe("trigger method", () => {
+        test("executes task graph and returns context", async () => {
             const taskGraph = new TaskGraph()
                 .addTask({
                     id: "task1",
@@ -149,7 +145,7 @@ test("Clujo", async (t) => {
             });
 
             const result = await clujo.trigger();
-            assert.deepEqual(result, {
+            expect(result).toEqual({
                 initial: undefined,
                 task1: "result1",
                 task2: "result1-result2",
@@ -157,8 +153,8 @@ test("Clujo", async (t) => {
         });
     });
 
-    await t.test("enabled flag", async (t) => {
-        await t.test("is enabled by default", async () => {
+    describe("enabled flag", () => {
+        test("is enabled by default", async () => {
             let executionCount = 0;
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -182,10 +178,10 @@ test("Clujo", async (t) => {
             await new Promise((resolve) => setTimeout(resolve, 100));
             await clujo.stop();
 
-            assert.equal(executionCount, 1, "Task should execute when enabled by default");
+            expect(executionCount).toBe(1);
         });
 
-        await t.test("respects disabled flag and logs message", async () => {
+        test("respects disabled flag and logs message", async () => {
             let executionCount = 0;
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -199,6 +195,7 @@ test("Clujo", async (t) => {
 
             const logs: string[] = [];
             const logger = {
+                debug: (message: string) => logs.push(message),
                 log: (message: string) => logs.push(message),
                 error: (message: string) => logs.push(message),
             };
@@ -217,16 +214,12 @@ test("Clujo", async (t) => {
             await new Promise((resolve) => setTimeout(resolve, 100));
             await clujo.stop();
 
-            assert.equal(executionCount, 0, "Task should not execute when disabled");
-            assert.equal(logs.length, 1, "Should log disabled message");
-            assert.equal(
-                logs[0],
-                "Clujo test is disabled. Skipping execution of the tasks",
-                "Should log correct disabled message",
-            );
+            expect(executionCount).toBe(0);
+            console.log(logs);
+            expect(logs).toContain("Skipping execution - Clujo test is disabled");
         });
 
-        await t.test("validates enabled flag type", () => {
+        test("validates enabled flag type", () => {
             const taskGraph = new TaskGraph()
                 .addTask({
                     id: "task1",
@@ -234,7 +227,7 @@ test("Clujo", async (t) => {
                 })
                 .build();
 
-            assert.throws(
+            expect(
                 () =>
                     new Clujo({
                         id: "test",
@@ -243,11 +236,10 @@ test("Clujo", async (t) => {
                         // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
                         enabled: "true" as any,
                     }),
-                /enabled must be a boolean/,
-            );
+            ).toThrow(/enabled must be a boolean/);
         });
 
-        await t.test("trigger executes regardless of enabled flag", async () => {
+        test("trigger executes regardless of enabled flag", async () => {
             let executionCount = 0;
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -267,10 +259,10 @@ test("Clujo", async (t) => {
             });
 
             await clujo.trigger();
-            assert.equal(executionCount, 1, "Manual trigger should execute even when disabled");
+            expect(executionCount).toBe(1);
         });
 
-        await t.test("logs warning when attempting scheduled run while disabled", async () => {
+        test("logs warning when attempting scheduled run while disabled", async () => {
             const taskGraph = new TaskGraph()
                 .addTask({
                     id: "task1",
@@ -280,6 +272,7 @@ test("Clujo", async (t) => {
 
             const logs: string[] = [];
             const logger = {
+                debug: (message: string) => logs.push(message),
                 log: (message: string) => logs.push(message),
                 error: (message: string) => logs.push(message),
             };
@@ -294,16 +287,10 @@ test("Clujo", async (t) => {
             });
 
             clujo.start();
-            // Give time for runOnStartup to execute
             await new Promise((resolve) => setTimeout(resolve, 100));
             await clujo.stop();
 
-            assert.equal(logs.length, 1, "Should log warning when attempting to run while disabled");
-            assert.equal(
-                logs[0],
-                "Clujo test is disabled. Skipping execution of the tasks",
-                "Should log correct disabled message",
-            );
+            expect(logs).toContain("Skipping execution - Clujo test is disabled");
         });
     });
 });

@@ -23,52 +23,54 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import assert from "node:assert/strict";
-import test from "node:test";
+import { describe, expect, test } from "vitest";
 import { DependencyMap } from "./_dependency-map";
 import type { TaskOptions } from "./_task";
 import type { TaskError } from "./error";
 import { TaskGraph, TaskGraphRunner } from "./task-graph";
 
-test("TaskGraph", async (t) => {
-    await t.test("constructor validates dependencies input", async (t) => {
-        await t.test("throws when dependencies is null", () => {
+describe("TaskGraph", () => {
+    describe("constructor validates dependencies input", () => {
+        test("throws when dependencies is null", () => {
             // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-            assert.throws(() => new TaskGraph({ dependencies: null as any }), /Dependencies must be a non-null object/);
+            expect(() => new TaskGraph({ dependencies: null as any })).toThrow(
+                /Dependencies must be a non-null object/,
+            );
         });
 
-        await t.test("throws when dependencies is not an object", () => {
+        test("throws when dependencies is not an object", () => {
             // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-            assert.throws(() => new TaskGraph({ dependencies: 42 as any }), /Dependencies must be a non-null object/);
+            expect(() => new TaskGraph({ dependencies: 42 as any })).toThrow(/Dependencies must be a non-null object/);
 
-            assert.throws(
-                // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-                () => new TaskGraph({ dependencies: "string" as any }),
+            // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+            expect(() => new TaskGraph({ dependencies: "string" as any })).toThrow(
                 /Dependencies must be a non-null object/,
             );
 
             // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-            assert.throws(() => new TaskGraph({ dependencies: true as any }), /Dependencies must be a non-null object/);
+            expect(() => new TaskGraph({ dependencies: true as any })).toThrow(
+                /Dependencies must be a non-null object/,
+            );
         });
 
-        await t.test("accepts valid dependencies object", () => {
-            assert.doesNotThrow(
+        test("accepts valid dependencies object", () => {
+            expect(
                 () =>
                     new TaskGraph({
                         dependencies: { key: "value" },
                     }),
-            );
+            ).not.toThrow();
 
-            assert.doesNotThrow(
+            expect(
                 () =>
                     new TaskGraph({
                         dependencies: Object.create(null),
                     }),
-            );
+            ).not.toThrow();
         });
     });
 
-    await t.test("addTask with no context or dependencies", async () => {
+    test("addTask with no context or dependencies", () => {
         const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
@@ -76,10 +78,10 @@ test("TaskGraph", async (t) => {
         };
         const returnedBuilder = taskGraph.addTask(task);
 
-        assert.equal(returnedBuilder, taskGraph);
+        expect(returnedBuilder).toBe(taskGraph);
     });
 
-    await t.test("addTask with self dependency throws", async () => {
+    test("addTask with self dependency throws", () => {
         const taskGraph = new TaskGraph();
         const task: TaskOptions<"task1", Record<string, unknown>, { initial: unknown }, Promise<string>, "task1"> = {
             id: "task1",
@@ -87,11 +89,11 @@ test("TaskGraph", async (t) => {
             dependencies: ["task1"],
         };
 
-        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-        assert.throws(() => taskGraph.addTask(task as any), /Task task1 cannot depend on itself/);
+        // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
+        expect(() => taskGraph.addTask(task as any)).toThrow(/Task task1 cannot depend on itself/);
     });
 
-    await t.test("validate retry policy throws when maxRetries is invalid", async () => {
+    test("validate retry policy throws when maxRetries is invalid", () => {
         const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
@@ -99,10 +101,10 @@ test("TaskGraph", async (t) => {
             retryPolicy: { maxRetries: -1, retryDelayMs: 100 },
         };
 
-        assert.throws(() => taskGraph.addTask(task), /maxRetries must be a non-negative integer/);
+        expect(() => taskGraph.addTask(task)).toThrow(/maxRetries must be a non-negative integer/);
     });
 
-    await t.test("validate retry policy throws when retryDelayMs is invalid", async () => {
+    test("validate retry policy throws when retryDelayMs is invalid", () => {
         const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
@@ -110,10 +112,10 @@ test("TaskGraph", async (t) => {
             retryPolicy: { maxRetries: 1, retryDelayMs: -1 },
         };
 
-        assert.throws(() => taskGraph.addTask(task), /retryDelayMs must be a non-negative number/);
+        expect(() => taskGraph.addTask(task)).toThrow(/retryDelayMs must be a non-negative number/);
     });
 
-    await t.test("Adding dependency id that is not a string throws", async () => {
+    test("Adding dependency id that is not a string throws", () => {
         const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
@@ -122,10 +124,10 @@ test("TaskGraph", async (t) => {
         };
 
         // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-        assert.throws(() => taskGraph.addTask(task as any), /Dependency ID must be a string/);
+        expect(() => taskGraph.addTask(task as any)).toThrow(/Dependency ID must be a string/);
     });
 
-    await t.test("addTask with existing task id throws", async () => {
+    test("addTask with existing task id throws", () => {
         const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
@@ -133,11 +135,10 @@ test("TaskGraph", async (t) => {
         };
 
         taskGraph.addTask(task);
-
-        assert.throws(() => taskGraph.addTask(task), /Task with id task1 already exists/);
+        expect(() => taskGraph.addTask(task)).toThrow(/Task with id task1 already exists/);
     });
 
-    await t.test("addTask with dependency that does not exist throws", async () => {
+    test("addTask with dependency that does not exist throws", () => {
         const taskGraph = new TaskGraph();
         const task = {
             id: "task1",
@@ -146,10 +147,10 @@ test("TaskGraph", async (t) => {
         };
 
         // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-        assert.throws(() => taskGraph.addTask(task as any), /Dependency task2 not found for task task1/);
+        expect(() => taskGraph.addTask(task as any)).toThrow(/Dependency task2 not found for task task1/);
     });
 
-    await t.test("addTask with dependencies", (t) => {
+    test("addTask with dependencies", () => {
         const taskGraph = new TaskGraph();
 
         const returnedBuilder = taskGraph
@@ -163,10 +164,10 @@ test("TaskGraph", async (t) => {
                 execute: () => Promise.resolve("result2"),
             });
 
-        assert.equal(returnedBuilder, taskGraph);
+        expect(returnedBuilder).toBe(taskGraph);
     });
 
-    await t.test("build returns TaskGraphRunner", () => {
+    test("build returns TaskGraphRunner", () => {
         const taskGraph = new TaskGraph();
 
         taskGraph.addTask({
@@ -175,19 +176,18 @@ test("TaskGraph", async (t) => {
         });
         const runner = taskGraph.build();
 
-        assert.ok(typeof runner.trigger === "function");
+        expect(typeof runner.trigger).toBe("function");
     });
 
-    await t.test("build throws error when no tasks added", () => {
+    test("build throws error when no tasks added", () => {
         const taskGraph = new TaskGraph();
-
-        assert.throws(() => taskGraph.build(), /No tasks added to the graph/);
+        expect(() => taskGraph.build()).toThrow(/No tasks added to the graph/);
     });
 });
 
-test("TaskGraphRunner", async (t) => {
-    await t.test("trigger executes tasks in correct order", async () => {
-        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+describe("TaskGraphRunner", () => {
+    test("trigger executes tasks in correct order", async () => {
+        // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
         let taskGraph: any = new TaskGraph();
         const executionOrder: string[] = [];
 
@@ -210,15 +210,15 @@ test("TaskGraphRunner", async (t) => {
         const runner = taskGraph.build();
         const result = await runner.trigger();
 
-        assert.deepEqual(executionOrder, ["task1", "task2"]);
-        assert.deepEqual(result, {
+        expect(executionOrder).toEqual(["task1", "task2"]);
+        expect(result).toEqual({
             initial: undefined,
             task1: "result1",
             task2: "result2",
         });
     });
 
-    await t.test("trigger skips tree of disabled tasks", async () => {
+    test("trigger skips tree of disabled tasks", async () => {
         const executionOrder: string[] = [];
         const taskGraph = new TaskGraph()
             .addTask({
@@ -256,15 +256,15 @@ test("TaskGraphRunner", async (t) => {
         const runner = taskGraph.build();
         const result = await runner.trigger();
 
-        assert.deepEqual(executionOrder, ["task1", "task2"]);
-        assert.deepEqual(result, {
+        expect(executionOrder).toEqual(["task1", "task2"]);
+        expect(result).toEqual({
             initial: undefined,
             task1: "result1",
             task2: "result2",
         });
     });
 
-    await t.test("run handles task failures", async () => {
+    test("run handles task failures", async () => {
         const taskGraph = new TaskGraph();
 
         taskGraph.addTask({
@@ -279,40 +279,40 @@ test("TaskGraphRunner", async (t) => {
         const runner = taskGraph.build();
         const result = await runner.trigger();
 
-        assert.deepEqual(result, {
+        expect(result).toEqual({
             initial: undefined,
             task2: "result2",
         });
     });
 });
 
-test("TaskGraphRunner - Complex Scenarios", async (t) => {
-    await t.test("no tasks throws", async () => {
+describe("TaskGraphRunner - Complex Scenarios", () => {
+    test("no tasks throws", () => {
         const taskGraph = new TaskGraph();
 
-        assert.throws(() => taskGraph.build(), /Unable to build TaskGraphRunner. No tasks added to the graph/);
+        expect(() => taskGraph.build()).toThrow(/Unable to build TaskGraphRunner. No tasks added to the graph/);
     });
 
-    await t.test("triggering with empty topological order throws", async () => {
+    test("triggering with empty topological order throws", async () => {
         const runner = new TaskGraphRunner({}, undefined, [], new Map(), new DependencyMap());
 
-        await assert.rejects(runner.trigger(), /No tasks to run. Did you forget to call topologicalSort?/);
+        await expect(runner.trigger()).rejects.toThrow(/No tasks to run. Did you forget to call topologicalSort?/);
     });
 
-    await t.test("triggering with no context value throws", async () => {
+    test("triggering with no context value throws", async () => {
         const runner = new TaskGraphRunner(
             {},
             undefined,
             ["task1"],
-            // biome-ignore lint/suspicious/noExplicitAny: faking input
+            // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
             new Map<any, any>([["task2", { id: "task1" }]]),
             new DependencyMap(),
         );
 
-        await assert.rejects(runner.trigger(), /Task task1 not found/);
+        await expect(runner.trigger()).rejects.toThrow(/Task task1 not found/);
     });
 
-    await t.test("mix of sync and async tasks with dependencies", async (t) => {
+    test("mix of sync and async tasks with dependencies", async () => {
         const executionOrder: string[] = [];
         const runner = new TaskGraph({
             contextValue: { initialValue: 10 },
@@ -362,22 +362,22 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
             })
             .build({
                 onTasksCompleted: (ctx, deps, errors) => {
-                    assert.deepEqual(ctx, {
+                    expect(ctx).toEqual({
                         initial: { initialValue: 10 },
                         syncTask1: 20,
                         asyncTask1: 25,
                         syncTask2: 60,
                         asyncTask2: 85,
                     });
-                    assert.deepEqual(deps, { multiplier: 2 });
-                    assert.deepEqual(errors, null);
+                    expect(deps).toEqual({ multiplier: 2 });
+                    expect(errors).toBeNull();
                 },
             });
 
         const result = await runner.trigger();
 
-        assert.deepEqual(executionOrder, ["syncTask1", "asyncTask1", "syncTask2", "asyncTask2"]);
-        assert.deepEqual(result, {
+        expect(executionOrder).toEqual(["syncTask1", "asyncTask1", "syncTask2", "asyncTask2"]);
+        expect(result).toEqual({
             initial: { initialValue: 10 },
             syncTask1: 20,
             asyncTask1: 25,
@@ -386,7 +386,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
         });
     });
 
-    await t.test("handling errors in mixed sync/async graph", async () => {
+    test("handling errors in mixed sync/async graph", async () => {
         const runner = new TaskGraph()
             .addTask({
                 id: "task1",
@@ -412,28 +412,28 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
             })
             .build({
                 onTasksCompleted: (ctx, deps, errors) => {
-                    assert.deepEqual(ctx, {
+                    expect(ctx).toEqual({
                         initial: undefined,
                         task1: "result1",
                         task3: "result3",
                     });
-                    assert.deepEqual(deps, Object.create(null));
-                    assert.equal(errors?.length, 1);
-                    assert.equal(errors?.at(0)?.id, "task2");
+                    expect(deps).toEqual(Object.create(null));
+                    expect(errors?.length).toBe(1);
+                    expect(errors?.at(0)?.id).toBe("task2");
                 },
             });
         const result = await runner.trigger();
 
-        assert.deepEqual(result, {
+        expect(result).toEqual({
             initial: undefined,
             task1: "result1",
             task3: "result3",
         });
-        assert.ok(!("task2" in result));
-        assert.ok(!("task4" in result));
+        expect(result).not.toHaveProperty("task2");
+        expect(result).not.toHaveProperty("task4");
     });
 
-    await t.test("concurrent execution of independent tasks", async () => {
+    test("concurrent execution of independent tasks", async () => {
         const taskGraph = new TaskGraph({
             contextValue: 10,
         });
@@ -460,17 +460,16 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
 
         const duration = Date.now() - startTime;
 
-        assert.deepEqual(result, {
+        expect(result).toEqual({
             initial: 10,
             asyncTask1: "result1",
             asyncTask2: "result2",
         });
 
-        // Ensure tasks ran concurrently (with some tolerance for test environment variations)
-        assert.ok(duration < 130, `Expected duration < 130ms, but was ${duration}ms`);
+        expect(duration).toBeLessThan(130);
     });
 
-    await t.test("complex dependency chain with mixed sync/async tasks", async () => {
+    test("complex dependency chain with mixed sync/async tasks", async () => {
         const executionOrder: string[] = [];
         const runner = new TaskGraph({
             contextValue: {
@@ -530,7 +529,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
 
         const result = await runner.trigger();
 
-        assert.deepEqual(result, {
+        expect(result).toEqual({
             initial: { initialValue: 10 },
             start: "start",
             async1: "async1",
@@ -541,17 +540,17 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
         });
 
         // Check execution order
-        assert.equal(executionOrder[0], "start");
-        assert.ok(executionOrder.indexOf("async1") > executionOrder.indexOf("start"));
-        assert.ok(executionOrder.indexOf("sync1") > executionOrder.indexOf("start"));
-        assert.ok(executionOrder.indexOf("async2") > executionOrder.indexOf("async1"));
-        assert.ok(executionOrder.indexOf("async2") > executionOrder.indexOf("sync1"));
-        assert.ok(executionOrder.indexOf("sync2") > executionOrder.indexOf("sync1"));
-        assert.equal(executionOrder[executionOrder.length - 1], "finalTask");
+        expect(executionOrder[0]).toBe("start");
+        expect(executionOrder.indexOf("async1")).toBeGreaterThan(executionOrder.indexOf("start"));
+        expect(executionOrder.indexOf("sync1")).toBeGreaterThan(executionOrder.indexOf("start"));
+        expect(executionOrder.indexOf("async2")).toBeGreaterThan(executionOrder.indexOf("async1"));
+        expect(executionOrder.indexOf("async2")).toBeGreaterThan(executionOrder.indexOf("sync1"));
+        expect(executionOrder.indexOf("sync2")).toBeGreaterThan(executionOrder.indexOf("sync1"));
+        expect(executionOrder[executionOrder.length - 1]).toBe("finalTask");
     });
 
-    await t.test("enabled flag behavior", async (t) => {
-        await t.test("tasks are enabled by default", async () => {
+    describe("enabled flag behavior", () => {
+        test("tasks are enabled by default", async () => {
             const executionOrder: string[] = [];
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -564,10 +563,10 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                 .build();
 
             await taskGraph.trigger();
-            assert.deepEqual(executionOrder, ["task1"]);
+            expect(executionOrder).toEqual(["task1"]);
         });
 
-        await t.test("disabled task is skipped", async () => {
+        test("disabled task is skipped", async () => {
             const executionOrder: string[] = [];
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -581,11 +580,11 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                 .build();
 
             const result = await taskGraph.trigger();
-            assert.deepEqual(executionOrder, []);
-            assert.deepEqual(result, { initial: undefined });
+            expect(executionOrder).toEqual([]);
+            expect(result).toEqual({ initial: undefined });
         });
 
-        await t.test("disabled task prevents dependent tasks from running", async () => {
+        test("disabled task prevents dependent tasks from running", async () => {
             const executionOrder: string[] = [];
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -607,11 +606,11 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                 .build();
 
             const result = await taskGraph.trigger();
-            assert.deepEqual(executionOrder, []);
-            assert.deepEqual(result, { initial: undefined });
+            expect(executionOrder).toEqual([]);
+            expect(result).toEqual({ initial: undefined });
         });
 
-        await t.test("disabled task in middle of chain prevents downstream tasks", async () => {
+        test("disabled task in middle of chain prevents downstream tasks", async () => {
             const executionOrder: string[] = [];
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -641,14 +640,14 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                 .build();
 
             const result = await taskGraph.trigger();
-            assert.deepEqual(executionOrder, ["task1"]);
-            assert.deepEqual(result, {
+            expect(executionOrder).toEqual(["task1"]);
+            expect(result).toEqual({
                 initial: undefined,
                 task1: "result1",
             });
         });
 
-        await t.test("disabled task only affects its dependency chain", async () => {
+        test("disabled task only affects its dependency chain", async () => {
             const executionOrder: string[] = [];
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -694,8 +693,8 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                 .build();
 
             const result = await taskGraph.trigger();
-            assert.deepEqual(executionOrder, ["start", "branch2Task", "branch2Dependent"]);
-            assert.deepEqual(result, {
+            expect(executionOrder).toEqual(["start", "branch2Task", "branch2Dependent"]);
+            expect(result).toEqual({
                 initial: undefined,
                 start: "start",
                 branch2Task: "branch2",
@@ -703,7 +702,7 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
             });
         });
 
-        await t.test("multiple disabled tasks in different chains", async () => {
+        test("multiple disabled tasks in different chains", async () => {
             const executionOrder: string[] = [];
             const taskGraph = new TaskGraph()
                 .addTask({
@@ -758,15 +757,15 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                 .build();
 
             const result = await taskGraph.trigger();
-            assert.deepEqual(executionOrder, ["root", "chain2-1"]);
-            assert.deepEqual(result, {
+            expect(executionOrder).toEqual(["root", "chain2-1"]);
+            expect(result).toEqual({
                 initial: undefined,
                 root: "root",
                 "chain2-1": "chain2-1",
             });
         });
 
-        await t.test("disabled task with error handling", async () => {
+        test("disabled task with error handling", async () => {
             const executionOrder: string[] = [];
             let errors: unknown[] = [];
 
@@ -802,13 +801,13 @@ test("TaskGraphRunner - Complex Scenarios", async (t) => {
                 });
 
             const result = await taskGraph.trigger();
-            assert.deepEqual(executionOrder, ["task1", "task3"]);
-            assert.deepEqual(result, {
+            expect(executionOrder).toEqual(["task1", "task3"]);
+            expect(result).toEqual({
                 initial: undefined,
                 task3: "result3",
             });
-            assert.equal(errors.length, 1);
-            assert.equal((errors[0] as TaskError).id, "task1");
+            expect(errors).toHaveLength(1);
+            expect((errors[0] as TaskError).id).toBe("task1");
         });
     });
 });

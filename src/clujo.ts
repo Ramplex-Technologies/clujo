@@ -99,6 +99,7 @@ export class Clujo<
         redis?: { client: Redis; lockOptions?: LockOptions };
         logger?: ClujoLogger;
     }) {
+        logger?.debug?.(`Initializing Clujo instance with ID: ${id}`);
         if (!id) {
             throw new Error("Clujo ID is required.");
         }
@@ -123,6 +124,15 @@ export class Clujo<
         if (redis && !redis.client) {
             throw new Error("Redis client is required in redis input.");
         }
+        if (redis) {
+            logger?.debug?.(`Redis configuration provided for Clujo ${id}`);
+        }
+        if (enabled === false) {
+            logger?.log?.(`Clujo instance ${id} initialized in disabled state`);
+        }
+        if (runOnStartup) {
+            logger?.debug?.(`Clujo ${id} configured to run on startup`);
+        }
         this.#id = id;
         this.#taskGraphRunner = taskGraphRunner;
         this.#cron = new Cron("pattern" in cron ? cron.pattern : cron.patterns, cron.options);
@@ -131,6 +141,7 @@ export class Clujo<
         this.#enabled = enabled ?? true;
         this.#redis = redis;
         this.#logger = logger;
+        logger?.log?.(`Clujo instance ${id} successfully initialized`);
     }
 
     get id(): string {
@@ -142,35 +153,46 @@ export class Clujo<
      * @throws An error if the Clujo has already started.
      */
     start(): void {
+        this.#logger?.debug?.(`Attempting to start Clujo ${this.#id}`);
         if (this.#hasStarted) {
+            this.#logger?.error?.(`Failed to start Clujo ${this.#id}: already started`);
             throw new Error("Cannot start a Clujo that has already started.");
         }
 
         const handler = async () => {
+            this.#logger?.debug?.(`Cron trigger received for Clujo ${this.#id}`);
             if (!this.#enabled) {
-                this.#logger?.log(`Clujo ${this.#id} is disabled. Skipping execution of the tasks`);
+                this.#logger?.log?.(`Skipping execution - Clujo ${this.#id} is disabled`);
                 return;
             }
             try {
                 if (!this.#redis) {
+                    this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
                     await this.#taskGraphRunner.trigger();
+                    this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
                 } else {
+                    this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
                     await using lock = await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions);
                     if (lock) {
+                        this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
                         await this.#taskGraphRunner.trigger();
+                        this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+                    } else {
+                        this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
                     }
                 }
             } catch (error) {
-                this.#logger?.error(`Clujo ${this.#id} failed to trigger: ${error}`);
+                this.#logger?.error?.(`Task graph execution failed for Clujo ${this.#id}: ${error}`);
             }
         };
         this.#cron.start(handler);
         this.#hasStarted = true;
+        this.#logger?.log?.(`Clujo ${this.#id} started successfully`);
 
         // we use the cron trigger here so that prevent overlapping is active by default
         // i.e., if no lock is used, and the trigger is executing, and the schedule time is reached, the scheduled execution will be skipped
         if (this.#runOnStartup) {
-            this.#cron.trigger();
+            void this.#cron.trigger();
         }
     }
 
@@ -183,10 +205,18 @@ export class Clujo<
      * @throws An error if the Clujo has not started.
      */
     async stop(timeout = 5000): Promise<void> {
+        this.#logger?.debug?.(`Attempting to stop Clujo ${this.#id} with timeout ${timeout}ms`);
         if (!this.#hasStarted) {
+            this.#logger?.error?.(`Failed to stop Clujo ${this.#id}: not started`);
             throw new Error("Cannot stop a Clujo that has not started.");
         }
-        await this.#cron.stop(timeout);
+        try {
+            await this.#cron.stop(timeout);
+            this.#logger?.log?.(`Clujo ${this.#id} stopped successfully`);
+        } catch (error) {
+            this.#logger?.error?.(`Failed to stop Clujo ${this.#id}: ${error}`);
+            throw error;
+        }
     }
 
     /**
@@ -197,7 +227,15 @@ export class Clujo<
      */
     async trigger(): Promise<TTaskContext> {
         // we do not trigger via the cron here so that we can make use of the result of the task graph
-        return await this.#taskGraphRunner.trigger();
+        this.#logger?.debug?.(`Manual trigger initiated for Clujo ${this.#id}`);
+        try {
+            const result = await this.#taskGraphRunner.trigger();
+            this.#logger?.log?.(`Manual trigger completed successfully for Clujo ${this.#id}`);
+            return result;
+        } catch (error) {
+            this.#logger?.error?.(`Manual trigger failed for Clujo ${this.#id}: ${error}`);
+            throw error;
+        }
     }
 
     /**
@@ -209,23 +247,43 @@ export class Clujo<
      * @returns An AsyncDisposable lock if it was acquired, otherwise null.
      */
     async #tryAcquire(redis: Redis, lockOptions: LockOptions | undefined): Promise<AsyncDisposableMutex | null> {
-        const mutex = new Mutex(redis, this.#id, lockOptions);
-        const lock = await mutex.tryAcquire();
-        if (!lock) {
-            this.#logger?.log(`Could not acquire mutex for Clujo ${this.#id} - another instance is likely running`);
-            return null;
-        }
-        return {
-            mutex,
-            [Symbol.asyncDispose]: async () => {
-                try {
-                    await mutex.release();
-                    this.#logger?.log(`Mutex released for Clujo ${this.id}`);
-                } catch (error) {
-                    this.#logger?.error(`Error releasing lock for Clujo ${this.#id}: ${error}`);
-                }
+        this.#logger?.debug?.(`Attempting to acquire mutex for Clujo ${this.#id}`);
+        const mutex = new Mutex(redis, this.#id, {
+            acquireAttemptsLimit: 1,
+            lockTimeout: 30000,
+            refreshInterval: 24000,
+            onLockLost: (lockLostError) => {
+                this.#logger?.error?.(`Lock lost for Clujo ${this.#id}: ${lockLostError.message}`);
+                throw lockLostError;
             },
-        };
+            ...lockOptions,
+        });
+
+        try {
+            const lock = await mutex.tryAcquire();
+            if (!lock) {
+                this.#logger?.debug?.(
+                    `Could not acquire mutex for Clujo ${this.#id} - another instance is likely running`,
+                );
+                return null;
+            }
+            this.#logger?.debug?.(`Successfully acquired mutex for Clujo ${this.#id}`);
+            return {
+                mutex,
+                [Symbol.asyncDispose]: async () => {
+                    try {
+                        await mutex.release();
+                        this.#logger?.debug?.(`Successfully released mutex for Clujo ${this.#id}`);
+                    } catch (error) {
+                        this.#logger?.error?.(`Failed to release mutex for Clujo ${this.#id}: ${error}`);
+                        throw error;
+                    }
+                },
+            };
+        } catch (error) {
+            this.#logger?.error?.(`Failed to acquire mutex for Clujo ${this.#id}: ${error}`);
+            throw error;
+        }
     }
 }
 
@@ -234,6 +292,7 @@ interface AsyncDisposableMutex extends AsyncDisposable {
 }
 
 interface ClujoLogger {
-    log(message: string): void;
-    error(message: string): void;
+    log?: (message: string) => void;
+    debug?: (message: string) => void;
+    error?: (message: string) => void;
 }

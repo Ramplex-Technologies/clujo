@@ -23,22 +23,21 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import { strict as assert } from "node:assert";
-import test from "node:test";
+import { describe, expect, test } from "vitest";
 import { Task } from "./_task";
 
-test("Task Class", async (t) => {
-    await t.test("constructor initializes task correctly", () => {
+describe("Task Class", () => {
+    test("constructor initializes task correctly", () => {
         const task = new Task({
             id: "test-task",
             execute: async () => "result",
         });
 
-        assert.equal(task.id, "test-task");
-        assert.equal(task.status, "pending");
+        expect(task.id).toBe("test-task");
+        expect(task.status).toBe("pending");
     });
 
-    await t.test("run executes task successfully", async () => {
+    test("run executes task successfully", async () => {
         const task = new Task({
             id: "test-task",
             execute: async ({ deps, ctx }) => `${deps.value}-${ctx.initial}`,
@@ -46,11 +45,11 @@ test("Task Class", async (t) => {
 
         const result = await task.run({ value: "dep" }, { initial: "ctx" });
 
-        assert.equal(result, "dep-ctx");
-        assert.equal(task.status, "completed");
+        expect(result).toBe("dep-ctx");
+        expect(task.status).toBe("completed");
     });
 
-    await t.test("run skips disabled task", async () => {
+    test("run skips disabled task", async () => {
         const task = new Task({
             id: "test-task",
             execute: async ({ deps, ctx }) => `${deps.value}-${ctx.initial}`,
@@ -59,11 +58,11 @@ test("Task Class", async (t) => {
 
         const result = await task.run({ value: "dep" }, { initial: "ctx" });
 
-        assert.equal(result, null);
-        assert.equal(task.status, "skipped");
+        expect(result).toBeNull();
+        expect(task.status).toBe("skipped");
     });
 
-    await t.test("run retries on failure according to retry policy", async () => {
+    test("run retries on failure according to retry policy", async () => {
         let attempts = 0;
         const task = new Task({
             id: "retry-task",
@@ -79,12 +78,12 @@ test("Task Class", async (t) => {
 
         const result = await task.run({}, { initial: null });
 
-        assert.equal(result, "success");
-        assert.equal(attempts, 3);
-        assert.equal(task.status, "completed");
+        expect(result).toBe("success");
+        expect(attempts).toBe(3);
+        expect(task.status).toBe("completed");
     });
 
-    await t.test("run fails after exhausting retries", async () => {
+    test("run fails after exhausting retries", async () => {
         const task = new Task({
             id: "failing-task",
             execute: async () => {
@@ -93,12 +92,12 @@ test("Task Class", async (t) => {
             retryPolicy: { maxRetries: 2, retryDelayMs: 10 },
         });
 
-        await assert.rejects(async () => await task.run({}, { initial: null }), { message: "Always failing" });
+        await expect(task.run({}, { initial: null })).rejects.toThrow("Always failing");
 
-        assert.equal(task.status, "failed");
+        expect(task.status).toBe("failed");
     });
 
-    await t.test("errorHandler is called on failure", async () => {
+    test("errorHandler is called on failure", async () => {
         let errorHandlerCalled = false;
         const task = new Task({
             id: "error-handler-task",
@@ -106,50 +105,48 @@ test("Task Class", async (t) => {
                 throw new Error("Task error");
             },
             errorHandler: async (err) => {
-                assert.equal(err.message, "Task error");
+                expect(err.message).toBe("Task error");
                 errorHandlerCalled = true;
             },
         });
 
-        await assert.rejects(async () => await task.run({}, { initial: null }), { message: "Task error" });
+        await expect(task.run({}, { initial: null })).rejects.toThrow("Task error");
 
-        assert.equal(errorHandlerCalled, true);
-        assert.equal(task.status, "failed");
+        expect(errorHandlerCalled).toBe(true);
+        expect(task.status).toBe("failed");
     });
 
-    await t.test("constructor validates retry policy", () => {
-        assert.throws(
+    test("constructor validates retry policy", () => {
+        expect(
             () =>
                 new Task({
                     id: "invalid-retry-policy",
                     execute: async () => {},
                     retryPolicy: { maxRetries: -1, retryDelayMs: 100 },
                 }),
-            { message: "maxRetries must be a non-negative integer" },
-        );
+        ).toThrow("maxRetries must be a non-negative integer");
 
-        assert.throws(
+        expect(
             () =>
                 new Task({
                     id: "invalid-retry-policy",
                     execute: async () => {},
                     retryPolicy: { maxRetries: 2, retryDelayMs: -100 },
                 }),
-            { message: "retryDelayMs must be a non-negative number" },
-        );
+        ).toThrow("retryDelayMs must be a non-negative number");
     });
 
-    await t.test("enabled flag behavior", async (t) => {
-        await t.test("task is enabled by default", () => {
+    describe("enabled flag behavior", () => {
+        test("task is enabled by default", () => {
             const task = new Task({
                 id: "test-task",
                 execute: async () => "result",
             });
 
-            assert.equal(task.isEnabled, true);
+            expect(task.isEnabled).toBe(true);
         });
 
-        await t.test("task respects explicit enabled flag", () => {
+        test("task respects explicit enabled flag", () => {
             const enabledTask = new Task({
                 id: "enabled-task",
                 execute: async () => "result",
@@ -162,11 +159,11 @@ test("Task Class", async (t) => {
                 enabled: false,
             });
 
-            assert.equal(enabledTask.isEnabled, true);
-            assert.equal(disabledTask.isEnabled, false);
+            expect(enabledTask.isEnabled).toBe(true);
+            expect(disabledTask.isEnabled).toBe(false);
         });
 
-        await t.test("disabled task skips execution and returns null", async () => {
+        test("disabled task skips execution and returns null", async () => {
             let executionCount = 0;
             const task = new Task({
                 id: "disabled-task",
@@ -179,12 +176,12 @@ test("Task Class", async (t) => {
 
             const result = await task.run({}, { initial: null });
 
-            assert.equal(result, null);
-            assert.equal(executionCount, 0, "Execute function should not be called");
-            assert.equal(task.status, "skipped");
+            expect(result).toBeNull();
+            expect(executionCount).toBe(0);
+            expect(task.status).toBe("skipped");
         });
 
-        await t.test("disabled task skips retries", async () => {
+        test("disabled task skips retries", async () => {
             let executionCount = 0;
             const task = new Task({
                 id: "disabled-retry-task",
@@ -198,12 +195,12 @@ test("Task Class", async (t) => {
 
             const result = await task.run({}, { initial: null });
 
-            assert.equal(result, null);
-            assert.equal(executionCount, 0, "Execute function should not be called");
-            assert.equal(task.status, "skipped");
+            expect(result).toBeNull();
+            expect(executionCount).toBe(0);
+            expect(task.status).toBe("skipped");
         });
 
-        await t.test("disabled task skips error handler", async () => {
+        test("disabled task skips error handler", async () => {
             let errorHandlerCalled = false;
             const task = new Task({
                 id: "disabled-error-handler-task",
@@ -218,30 +215,30 @@ test("Task Class", async (t) => {
 
             const result = await task.run({}, { initial: null });
 
-            assert.equal(result, null);
-            assert.equal(errorHandlerCalled, false, "Error handler should not be called");
-            assert.equal(task.status, "skipped");
+            expect(result).toBeNull();
+            expect(errorHandlerCalled).toBe(false);
+            expect(task.status).toBe("skipped");
         });
 
-        await t.test("task status transitions correctly when disabled", async () => {
+        test("task status transitions correctly when disabled", async () => {
             const task = new Task({
                 id: "status-test-task",
                 execute: async () => "result",
                 enabled: false,
             });
 
-            assert.equal(task.status, "pending", "Initial status should be pending");
+            expect(task.status).toBe("pending");
 
             await task.run({}, { initial: null });
 
-            assert.equal(task.status, "skipped", "Final status should be skipped");
+            expect(task.status).toBe("skipped");
         });
 
-        await t.test("enabled task with dependencies receives correct context", async () => {
+        test("enabled task with dependencies receives correct context", async () => {
             const task = new Task({
                 id: "context-test-task",
                 execute: async ({ ctx }) => {
-                    assert.deepEqual(ctx, {
+                    expect(ctx).toEqual({
                         initial: "initial",
                         dep1: "value1",
                         dep2: "value2",
@@ -261,11 +258,11 @@ test("Task Class", async (t) => {
                 },
             );
 
-            assert.equal(result, "result");
-            assert.equal(task.status, "completed");
+            expect(result).toBe("result");
+            expect(task.status).toBe("completed");
         });
 
-        await t.test("disabled task in retry scenario", async () => {
+        test("disabled task in retry scenario", async () => {
             let attemptCount = 0;
             const task = new Task({
                 id: "disabled-retry-scenario",
@@ -282,12 +279,12 @@ test("Task Class", async (t) => {
 
             const result = await task.run({}, { initial: null });
 
-            assert.equal(result, null);
-            assert.equal(attemptCount, 0, "No attempts should be made");
-            assert.equal(task.status, "skipped");
+            expect(result).toBeNull();
+            expect(attemptCount).toBe(0);
+            expect(task.status).toBe("skipped");
         });
 
-        await t.test("disabled task with non-null initial context", async () => {
+        test("disabled task with non-null initial context", async () => {
             const task = new Task({
                 id: "disabled-context-task",
                 execute: async () => "result",
@@ -301,8 +298,8 @@ test("Task Class", async (t) => {
                 },
             );
 
-            assert.equal(result, null);
-            assert.equal(task.status, "skipped");
+            expect(result).toBeNull();
+            expect(task.status).toBe("skipped");
         });
     });
 });

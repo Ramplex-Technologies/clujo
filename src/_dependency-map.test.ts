@@ -22,72 +22,73 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import assert from "node:assert/strict";
-import test from "node:test";
+import { describe, expect, test } from "vitest";
 import { DependencyMap } from "./_dependency-map";
 
-test("DependencyMap", async (t) => {
-    await t.test("add method", async (t) => {
-        await t.test("creates new array for first dependency", () => {
+describe("DependencyMap", () => {
+    describe("add method", () => {
+        test("creates new array for first dependency", () => {
             const dependencyMap = new DependencyMap();
             dependencyMap.add("task1", "dependency1");
 
-            assert.deepEqual(dependencyMap.get("task1"), ["dependency1"]);
+            expect(dependencyMap.get("task1")).toEqual(["dependency1"]);
         });
 
-        await t.test("appends to existing dependencies", () => {
+        test("appends to existing dependencies", () => {
             const dependencyMap = new DependencyMap();
             dependencyMap.add("task1", "dependency1");
             dependencyMap.add("task1", "dependency2");
 
-            assert.deepEqual(dependencyMap.get("task1"), ["dependency1", "dependency2"]);
+            expect(dependencyMap.get("task1")).toEqual(["dependency1", "dependency2"]);
         });
 
-        await t.test("handles multiple tasks independently", () => {
+        test("handles multiple tasks independently", () => {
             const dependencyMap = new DependencyMap();
             dependencyMap.add("task1", "dependency1");
             dependencyMap.add("task2", "dependency2");
 
-            assert.deepEqual(dependencyMap.get("task1"), ["dependency1"]);
-            assert.deepEqual(dependencyMap.get("task2"), ["dependency2"]);
+            expect(dependencyMap.get("task1")).toEqual(["dependency1"]);
+            expect(dependencyMap.get("task2")).toEqual(["dependency2"]);
         });
     });
 
-    await t.test("get method", async (t) => {
-        await t.test("returns empty array for non-existent key", () => {
+    describe("get method", () => {
+        test("returns empty array for non-existent key", () => {
             const dependencyMap = new DependencyMap();
-            assert.deepEqual(dependencyMap.get("nonexistent"), []);
+            expect(dependencyMap.get("nonexistent")).toEqual([]);
         });
 
-        await t.test("returns correct dependencies for existing key", () => {
+        test("returns correct dependencies for existing key", () => {
             const dependencyMap = new DependencyMap();
             dependencyMap.add("task1", "dependency1");
             dependencyMap.add("task1", "dependency2");
 
-            assert.deepEqual(dependencyMap.get("task1"), ["dependency1", "dependency2"]);
+            expect(dependencyMap.get("task1")).toEqual(["dependency1", "dependency2"]);
         });
 
-        await t.test("returns independent arrays for different calls", () => {
+        test("returns independent arrays for different calls", () => {
             const dependencyMap = new DependencyMap();
             dependencyMap.add("task1", "dependency1");
 
             const result1 = dependencyMap.get("task1");
             const result2 = dependencyMap.get("task1");
 
-            assert.notEqual(result1, result2, "Should return different array instances");
-            assert.deepEqual(result1, result2, "Arrays should have same content");
+            expect(result1).not.toBe(result2); // Should return different array instances
+            expect(result1).toEqual(result2); // Arrays should have same content
         });
     });
 
-    await t.test("immutability", async (t) => {
-        await t.test("modifying returned array doesn't affect internal state", () => {
+    describe("immutability", () => {
+        test("modifying returned array doesn't affect internal state", () => {
             const dependencyMap = new DependencyMap();
             dependencyMap.add("task1", "dependency1");
 
             const dependencies = dependencyMap.get("task1");
 
-            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-            assert.throws(() => (dependencyMap.get("task1") as any).push("newDependency"));
+            expect(() => {
+                // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+                (dependencyMap.get("task1") as any).push("newDependency");
+            }).toThrow();
         });
     });
 });

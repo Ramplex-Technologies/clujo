@@ -85,8 +85,9 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<s
     trigger(): Promise<TTaskContext>;
 }
 interface ClujoLogger {
-    log(message: string): void;
-    error(message: string): void;
+    log?: (message: string) => void;
+    debug?: (message: string) => void;
+    error?: (message: string) => void;
 }
 
 export { Clujo };
