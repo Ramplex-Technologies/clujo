@@ -215,7 +215,6 @@ describe("Clujo", () => {
             await clujo.stop();
 
             expect(executionCount).toBe(0);
-            console.log(logs);
             expect(logs).toContain("Skipping execution - Clujo test is disabled");
         });
 
