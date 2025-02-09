@@ -165,24 +165,20 @@ export class Clujo<
                 this.#logger?.log?.(`Skipping execution - Clujo ${this.#id} is disabled`);
                 return;
             }
-            try {
-                if (!this.#redis) {
-                    this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
+            if (!this.#redis) {
+                this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
+                await this.#taskGraphRunner.trigger();
+                this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+            } else {
+                this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
+                await using lock = await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions);
+                if (lock) {
+                    this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
                     await this.#taskGraphRunner.trigger();
                     this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
                 } else {
-                    this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
-                    await using lock = await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions);
-                    if (lock) {
-                        this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
-                        await this.#taskGraphRunner.trigger();
-                        this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
-                    } else {
-                        this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
-                    }
+                    this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
                 }
-            } catch (error) {
-                this.#logger?.error?.(`Task graph execution failed for Clujo ${this.#id}: ${error}`);
             }
         };
         this.#cron.start(handler);
