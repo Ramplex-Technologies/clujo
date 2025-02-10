@@ -44,7 +44,9 @@ type DeepReadonly<T> = {
 export class TaskGraph<
     TTaskDependencies extends Record<string, unknown> = never,
     TInitialTaskContext = undefined,
-    TTaskContext extends Record<string, unknown> & { readonly initial: DeepReadonly<TInitialTaskContext> } = {
+    TTaskContext extends Record<string, unknown> & {
+        readonly initial: DeepReadonly<TInitialTaskContext>;
+    } = {
         readonly initial: DeepReadonly<TInitialTaskContext>;
     },
     TAllDependencyIds extends string & keyof TTaskContext = never,
@@ -300,15 +302,21 @@ export class TaskGraphRunner<
         }
         let value: TInitialTaskContext | undefined;
         if (this.#contextValueOrFactory) {
-            value =
-                typeof this.#contextValueOrFactory === "function"
-                    ? await (
-                          this.#contextValueOrFactory as (
-                              deps: TTaskDependencies,
-                          ) => TInitialTaskContext | Promise<TInitialTaskContext>
-                      )(this.#dependencies)
-                    : this.#contextValueOrFactory;
-            this.#context.reset(value);
+            try {
+                value =
+                    typeof this.#contextValueOrFactory === "function"
+                        ? await (
+                              this.#contextValueOrFactory as (
+                                  deps: TTaskDependencies,
+                              ) => TInitialTaskContext | Promise<TInitialTaskContext>
+                          )(this.#dependencies)
+                        : this.#contextValueOrFactory;
+                this.#context.reset(value);
+            } catch (err) {
+                const message = err instanceof Error ? err : new Error(String(err));
+                this.#errors.push(new TaskError("context factory", message));
+                throw err;
+            }
         }
 
         const completed = new Set<string>();
