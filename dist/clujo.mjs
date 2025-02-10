@@ -208,33 +208,38 @@ var Clujo = class {
       throw new Error("Cannot start a Clujo that has already started.");
     }
     const handler = async () => {
-      this.#logger?.debug?.(`Cron trigger received for Clujo ${this.#id}`);
-      if (!this.#enabled) {
-        this.#logger?.log?.(`Skipping execution - Clujo ${this.#id} is disabled`);
-        return;
-      }
-      if (!this.#redis) {
-        this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
-        await this.#taskGraphRunner.trigger();
-        this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
-      } else {
-        var _stack = [];
-        try {
-          this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
-          const lock = __using(_stack, await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions), true);
-          if (lock) {
-            this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
-            await this.#taskGraphRunner.trigger();
-            this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
-          } else {
-            this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
-          }
-        } catch (_) {
-          var _error = _, _hasError = true;
-        } finally {
-          var _promise = __callDispose(_stack, _error, _hasError);
-          _promise && await _promise;
+      try {
+        this.#logger?.debug?.(`Cron trigger received for Clujo ${this.#id}`);
+        if (!this.#enabled) {
+          this.#logger?.log?.(`Skipping execution - Clujo ${this.#id} is disabled`);
+          return;
         }
+        if (!this.#redis) {
+          this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
+          await this.#taskGraphRunner.trigger();
+          this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+        } else {
+          var _stack = [];
+          try {
+            this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
+            const lock = __using(_stack, await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions), true);
+            if (lock) {
+              this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
+              await this.#taskGraphRunner.trigger();
+              this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+            } else {
+              this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
+            }
+          } catch (_) {
+            var _error = _, _hasError = true;
+          } finally {
+            var _promise = __callDispose(_stack, _error, _hasError);
+            _promise && await _promise;
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.#logger?.error?.(`Failed to execute task graph for Clujo ${this.#id}: ${message}`);
       }
     };
     this.#cron.start(handler);

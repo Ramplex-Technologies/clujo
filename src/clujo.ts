@@ -160,25 +160,30 @@ export class Clujo<
         }
 
         const handler = async () => {
-            this.#logger?.debug?.(`Cron trigger received for Clujo ${this.#id}`);
-            if (!this.#enabled) {
-                this.#logger?.log?.(`Skipping execution - Clujo ${this.#id} is disabled`);
-                return;
-            }
-            if (!this.#redis) {
-                this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
-                await this.#taskGraphRunner.trigger();
-                this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
-            } else {
-                this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
-                await using lock = await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions);
-                if (lock) {
-                    this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
+            try {
+                this.#logger?.debug?.(`Cron trigger received for Clujo ${this.#id}`);
+                if (!this.#enabled) {
+                    this.#logger?.log?.(`Skipping execution - Clujo ${this.#id} is disabled`);
+                    return;
+                }
+                if (!this.#redis) {
+                    this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
                     await this.#taskGraphRunner.trigger();
                     this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
                 } else {
-                    this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
+                    this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
+                    await using lock = await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions);
+                    if (lock) {
+                        this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
+                        await this.#taskGraphRunner.trigger();
+                        this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+                    } else {
+                        this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
+                    }
                 }
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                this.#logger?.error?.(`Failed to execute task graph for Clujo ${this.#id}: ${message}`);
             }
         };
         this.#cron.start(handler);
