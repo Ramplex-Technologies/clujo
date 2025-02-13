@@ -1,6 +1,6 @@
 {
   "name": "@ramplex/clujo",
-  "version": "3.2.8",
+  "version": "3.2.9",
   "exports": "./src/index.ts",
   "publish": {
     "include": ["LICENSE", "README.md", "src/**/*.ts"],

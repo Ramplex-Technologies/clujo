@@ -795,7 +795,7 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
                 .build({
                     onTasksCompleted: (_, __, taskErrors) => {
                         if (taskErrors) {
-                            errors = taskErrors;
+                            errors = [...taskErrors];
                         }
                     },
                 });

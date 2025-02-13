@@ -741,14 +741,8 @@ var TaskGraphRunner = class {
     }
     let value;
     if (this.#contextValueOrFactory) {
-      try {
-        value = typeof this.#contextValueOrFactory === "function" ? await this.#contextValueOrFactory(this.#dependencies) : this.#contextValueOrFactory;
-        this.#context.reset(value);
-      } catch (err) {
-        const message = err instanceof Error ? err : new Error(String(err));
-        this.#errors.push(new TaskError("context factory", message));
-        throw err;
-      }
+      value = typeof this.#contextValueOrFactory === "function" ? await this.#contextValueOrFactory(this.#dependencies) : this.#contextValueOrFactory;
+      this.#context.reset(value);
     }
     const completed = /* @__PURE__ */ new Set();
     const running = /* @__PURE__ */ new Map();
@@ -823,6 +817,7 @@ var TaskGraphRunner = class {
       return await this.#run();
     } finally {
       this.#context.reset(void 0);
+      this.#errors.length = 0;
     }
   }
   printTaskGraph() {

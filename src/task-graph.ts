@@ -302,21 +302,15 @@ export class TaskGraphRunner<
         }
         let value: TInitialTaskContext | undefined;
         if (this.#contextValueOrFactory) {
-            try {
-                value =
-                    typeof this.#contextValueOrFactory === "function"
-                        ? await (
-                              this.#contextValueOrFactory as (
-                                  deps: TTaskDependencies,
-                              ) => TInitialTaskContext | Promise<TInitialTaskContext>
-                          )(this.#dependencies)
-                        : this.#contextValueOrFactory;
-                this.#context.reset(value);
-            } catch (err) {
-                const message = err instanceof Error ? err : new Error(String(err));
-                this.#errors.push(new TaskError("context factory", message));
-                throw err;
-            }
+            value =
+                typeof this.#contextValueOrFactory === "function"
+                    ? await (
+                          this.#contextValueOrFactory as (
+                              deps: TTaskDependencies,
+                          ) => TInitialTaskContext | Promise<TInitialTaskContext>
+                      )(this.#dependencies)
+                    : this.#contextValueOrFactory;
+            this.#context.reset(value);
         }
 
         const completed = new Set<string>();
@@ -415,6 +409,7 @@ export class TaskGraphRunner<
             return await this.#run();
         } finally {
             this.#context.reset(undefined);
+            this.#errors.length = 0;
         }
     }
 
