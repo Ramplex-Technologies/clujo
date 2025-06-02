@@ -96,23 +96,16 @@ import { TaskGraph, Clujo } from '@ramplex/clujo';
 const tasks = new TaskGraph({
   // Optional: provide initial context value
   contextValue: { initialData: "some value" },
-  // Optional: provide dependencies available to all tasks
-  dependencies: { logger: console }
 })
   .addTask({
     id: "task1",
-    execute: async ({ deps, ctx }) => {
-      deps.logger.log("Task 1 executing");
-      deps.logger.log("Initial data:", ctx.initial.initialData);
+    execute: async ({ ctx }) => {
       return "Task 1 result";
     },
   })
   .addTask({
     id: "task2",
-    execute: async ({ deps, ctx }) => {
-      deps.logger.log("Task 2 executing");
-      // since task2 depends on task1, it will have access to the result of task1
-      deps.logger.log("Task 1 result:", ctx.task1);
+    execute: async ({ ctx }) => {
       return "Task 2 result";
     },
     // will only execute after task 1 completes
@@ -120,8 +113,7 @@ const tasks = new TaskGraph({
   })
   .addTask({
     id: "task3",
-    execute: async ({ deps, ctx }) => {
-      deps.logger.log("Task 3 executing");
+    execute: async ({ ctx }) => {
       return "Task 3 result";
     },
     // since task3 has no dependencies, it will run in parallel with task1 at the start of execution and it does not have guaranteed access to any other task's result
@@ -129,7 +121,7 @@ const tasks = new TaskGraph({
   .build({
       // Optional: provide a (sync or async) function to run when the task graph completes execution that takes in the completed context object
       // dependencies, and errors (list of TaskError for each task that failed if any errors occurred, otherwise null)
-      onTasksCompleted: (ctx, deps, errors) => console.log(ctx, deps, errors),
+      onTasksCompleted: (ctx, errors) => console.log(ctx, errors),
   });
 
 // Create a Clujo instance
@@ -312,12 +304,10 @@ test Structure:
 // Using a static context value
 const tasks = new TaskGraph({
   contextValue: { users: [], config: {} },
-  dependencies: { logger: console }
 })
   .addTask({
     id: "task1",
-    execute: ({ deps, ctx }) => {
-      deps.logger.log(ctx.initial.users);
+    execute: ({ ctx }) => {
       return "result";
     }
   })
@@ -325,16 +315,14 @@ const tasks = new TaskGraph({
 
 // Using a (sync or async) context factory
 const tasks = new TaskGraph({
-  contextFactory: async (deps) => {
+  contextFactory: async () => {
     const users = await fetchUsers();
     return { users };
   },
-  dependencies: { logger: console }
 })
   .addTask({
     id: "task1",
-    execute: ({ deps, ctx }) => {
-      deps.logger.log(ctx.initial.users);
+    execute: ({ ctx }) => {
       return "result";
     }
   })
@@ -428,10 +416,10 @@ Tasks can have their own error handlers, allowing you to define custom logic for
 ```typescript
 .addTask({
   id: "taskWithErrorHandler",
-  execute: async ({ deps, ctx }) => {
+  execute: async ({ ctx }) => {
     // Task logic
   },
-  errorHandler: async (error, { deps, ctx }) => {
+  errorHandler: async (error, { ctx }) => {
     console.error("Task failed:", error);
   }
 })
@@ -443,10 +431,10 @@ Another way to monitor / act on errors is to make use of the `onTasksCompleted` 
 new TaskGraph()
     .addTask({
         id: "task",
-        execute: async ({ deps, ctx }) => {...}
+        execute: async ({ ctx }) => {...}
     })
     .build({
-        onTasksCompleted: (ctx, deps, errors) => {
+        onTasksCompleted: (ctx, errors) => {
             for (const error of errors) {
                 console.error(`${error.id} failed: ${error.message}`)
             }
@@ -461,7 +449,7 @@ Specify a retry policy for a task to automatically retry failed executions. The 
 ```typescript
 .addTask({
   id: "taskWithRetry",
-  execute: async ({ deps, ctx }) => {
+  execute: async ({ ctx }) => {
     // Task logic
   },
   retryPolicy: { maxRetries: 3, retryDelayMs: 1000 }

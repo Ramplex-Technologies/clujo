@@ -30,46 +30,6 @@ import type { TaskError } from "./error";
 import { TaskGraph, TaskGraphRunner } from "./task-graph";
 
 describe("TaskGraph", () => {
-    describe("constructor validates dependencies input", () => {
-        test("throws when dependencies is null", () => {
-            // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-            expect(() => new TaskGraph({ dependencies: null as any })).toThrow(
-                /Dependencies must be a non-null object/,
-            );
-        });
-
-        test("throws when dependencies is not an object", () => {
-            // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-            expect(() => new TaskGraph({ dependencies: 42 as any })).toThrow(/Dependencies must be a non-null object/);
-
-            // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-            expect(() => new TaskGraph({ dependencies: "string" as any })).toThrow(
-                /Dependencies must be a non-null object/,
-            );
-
-            // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
-            expect(() => new TaskGraph({ dependencies: true as any })).toThrow(
-                /Dependencies must be a non-null object/,
-            );
-        });
-
-        test("accepts valid dependencies object", () => {
-            expect(
-                () =>
-                    new TaskGraph({
-                        dependencies: { key: "value" },
-                    }),
-            ).not.toThrow();
-
-            expect(
-                () =>
-                    new TaskGraph({
-                        dependencies: Object.create(null),
-                    }),
-            ).not.toThrow();
-        });
-    });
-
     test("addTask with no context or dependencies", () => {
         const taskGraph = new TaskGraph();
         const task = {
@@ -83,7 +43,7 @@ describe("TaskGraph", () => {
 
     test("addTask with self dependency throws", () => {
         const taskGraph = new TaskGraph();
-        const task: TaskOptions<"task1", Record<string, unknown>, { initial: unknown }, Promise<string>, "task1"> = {
+        const task: TaskOptions<"task1", { initial: unknown }, Promise<string>, "task1"> = {
             id: "task1",
             execute: () => Promise.resolve("result1"),
             dependencies: ["task1"],
@@ -294,7 +254,7 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
     });
 
     test("triggering with empty topological order throws", async () => {
-        const runner = new TaskGraphRunner({}, undefined, [], new Map(), new DependencyMap());
+        const runner = new TaskGraphRunner({}, [], new Map(), new DependencyMap());
 
         await expect(runner.trigger()).rejects.toThrow(/No tasks to run. Did you forget to call topologicalSort?/);
     });
@@ -302,7 +262,6 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
     test("triggering with no context value throws", async () => {
         const runner = new TaskGraphRunner(
             {},
-            undefined,
             ["task1"],
             // biome-ignore lint/suspicious/noExplicitAny: invalid type must be cast
             new Map<any, any>([["task2", { id: "task1" }]]),
@@ -316,13 +275,12 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
         const executionOrder: string[] = [];
         const runner = new TaskGraph({
             contextValue: { initialValue: 10 },
-            dependencies: { multiplier: 2 },
         })
             .addTask({
                 id: "syncTask1",
-                execute: ({ ctx, deps }) => {
+                execute: ({ ctx }) => {
                     executionOrder.push("syncTask1");
-                    return ctx.initial.initialValue * deps.multiplier;
+                    return ctx.initial.initialValue * 2;
                 },
             })
             .addTask({
@@ -361,7 +319,7 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
                 },
             })
             .build({
-                onTasksCompleted: (ctx, deps, errors) => {
+                onTasksCompleted: (ctx, errors) => {
                     expect(ctx).toEqual({
                         initial: { initialValue: 10 },
                         syncTask1: 20,
@@ -369,7 +327,6 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
                         syncTask2: 60,
                         asyncTask2: 85,
                     });
-                    expect(deps).toEqual({ multiplier: 2 });
                     expect(errors).toBeNull();
                 },
             });
@@ -411,13 +368,12 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
                 execute: ({ ctx }) => `${ctx.task2} - ${ctx.task3}`,
             })
             .build({
-                onTasksCompleted: (ctx, deps, errors) => {
+                onTasksCompleted: (ctx, errors) => {
                     expect(ctx).toEqual({
                         initial: undefined,
                         task1: "result1",
                         task3: "result3",
                     });
-                    expect(deps).toEqual(Object.create(null));
                     expect(errors?.length).toBe(1);
                     expect(errors?.at(0)?.id).toBe("task2");
                 },
@@ -793,7 +749,7 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
                     },
                 })
                 .build({
-                    onTasksCompleted: (_, __, taskErrors) => {
+                    onTasksCompleted: (_, taskErrors) => {
                         if (taskErrors) {
                             errors = [...taskErrors];
                         }

@@ -40,23 +40,23 @@ describe("Task Class", () => {
     test("run executes task successfully", async () => {
         const task = new Task({
             id: "test-task",
-            execute: async ({ deps, ctx }) => `${deps.value}-${ctx.initial}`,
+            execute: async ({ ctx }) => `${ctx.initial}`,
         });
 
-        const result = await task.run({ value: "dep" }, { initial: "ctx" });
+        const result = await task.run({ initial: "ctx" });
 
-        expect(result).toBe("dep-ctx");
+        expect(result).toBe("ctx");
         expect(task.status).toBe("completed");
     });
 
     test("run skips disabled task", async () => {
         const task = new Task({
             id: "test-task",
-            execute: async ({ deps, ctx }) => `${deps.value}-${ctx.initial}`,
+            execute: async ({ ctx }) => `${ctx.initial}`,
             enabled: false,
         });
 
-        const result = await task.run({ value: "dep" }, { initial: "ctx" });
+        const result = await task.run({ initial: "ctx" });
 
         expect(result).toBeNull();
         expect(task.status).toBe("skipped");
@@ -76,7 +76,7 @@ describe("Task Class", () => {
             retryPolicy: { maxRetries: 2, retryDelayMs: 10 },
         });
 
-        const result = await task.run({}, { initial: null });
+        const result = await task.run({ initial: null });
 
         expect(result).toBe("success");
         expect(attempts).toBe(3);
@@ -92,7 +92,7 @@ describe("Task Class", () => {
             retryPolicy: { maxRetries: 2, retryDelayMs: 10 },
         });
 
-        await expect(task.run({}, { initial: null })).rejects.toThrow("Always failing");
+        await expect(task.run({ initial: null })).rejects.toThrow("Always failing");
 
         expect(task.status).toBe("failed");
     });
@@ -110,7 +110,7 @@ describe("Task Class", () => {
             },
         });
 
-        await expect(task.run({}, { initial: null })).rejects.toThrow("Task error");
+        await expect(task.run({ initial: null })).rejects.toThrow("Task error");
 
         expect(errorHandlerCalled).toBe(true);
         expect(task.status).toBe("failed");
@@ -174,7 +174,7 @@ describe("Task Class", () => {
                 enabled: false,
             });
 
-            const result = await task.run({}, { initial: null });
+            const result = await task.run({ initial: null });
 
             expect(result).toBeNull();
             expect(executionCount).toBe(0);
@@ -193,7 +193,7 @@ describe("Task Class", () => {
                 retryPolicy: { maxRetries: 3, retryDelayMs: 10 },
             });
 
-            const result = await task.run({}, { initial: null });
+            const result = await task.run({ initial: null });
 
             expect(result).toBeNull();
             expect(executionCount).toBe(0);
@@ -213,7 +213,7 @@ describe("Task Class", () => {
                 enabled: false,
             });
 
-            const result = await task.run({}, { initial: null });
+            const result = await task.run({ initial: null });
 
             expect(result).toBeNull();
             expect(errorHandlerCalled).toBe(false);
@@ -229,7 +229,7 @@ describe("Task Class", () => {
 
             expect(task.status).toBe("pending");
 
-            await task.run({}, { initial: null });
+            await task.run({ initial: null });
 
             expect(task.status).toBe("skipped");
         });
@@ -249,14 +249,11 @@ describe("Task Class", () => {
                 enabled: true,
             });
 
-            const result = await task.run(
-                {},
-                {
-                    initial: "initial",
-                    dep1: "value1",
-                    dep2: "value2",
-                },
-            );
+            const result = await task.run({
+                initial: "initial",
+                dep1: "value1",
+                dep2: "value2",
+            });
 
             expect(result).toBe("result");
             expect(task.status).toBe("completed");
@@ -277,7 +274,7 @@ describe("Task Class", () => {
                 enabled: false,
             });
 
-            const result = await task.run({}, { initial: null });
+            const result = await task.run({ initial: null });
 
             expect(result).toBeNull();
             expect(attemptCount).toBe(0);
@@ -291,12 +288,9 @@ describe("Task Class", () => {
                 enabled: false,
             });
 
-            const result = await task.run(
-                {},
-                {
-                    initial: { value: "test" },
-                },
-            );
+            const result = await task.run({
+                initial: { value: "test" },
+            });
 
             expect(result).toBeNull();
             expect(task.status).toBe("skipped");

@@ -35,7 +35,6 @@ import { promisify } from "node:util";
  * Represents the options for a task.
  *
  * @template TTaskId - string literal type representing the task ID
- * @template TTaskDependencies - Type of task dependencies passed into the task execution function
  * @template TTaskContext - Type of task context passed into the task execution function
  * @template TTaskReturn - Type of task return value
  * @template TPossibleTaskDependencyId - string literal type representing the possible dependencies of this task
@@ -44,12 +43,10 @@ import { promisify } from "node:util";
  */
 export type TaskOptions<
     TTaskId extends string,
-    TTaskDependencies extends Record<string, unknown>,
     TTaskContext extends Record<string, unknown> & { initial: unknown },
     TTaskReturn,
     TPossibleTaskDependencyId extends string = never,
     TInput = {
-        deps: TTaskDependencies;
         ctx: [TPossibleTaskDependencyId] extends [never]
             ? TTaskContext
             : ContextWithDependencies<TTaskContext, TPossibleTaskDependencyId>;
@@ -97,22 +94,20 @@ export type TaskOptions<
  * Represents a task that can be executed. A task takes a set of dependencies and a context as input,
  * and returns a (potentially void) value when executed.
  *
- * @template TTaskDependencies - Type of task dependencies
  * @template TTaskContext - Type of task context
  * @template TTaskReturn - Type of task return value
  */
 export class Task<
-    TTaskDependencies extends Record<string, unknown>,
     TTaskContext extends Record<string, unknown> & { initial: unknown },
     TTaskReturn,
     TPossibleTaskDependencyId extends string = never,
 > {
-    readonly #options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, TPossibleTaskDependencyId>;
+    readonly #options: TaskOptions<string, TTaskContext, TTaskReturn, TPossibleTaskDependencyId>;
 
     #retryPolicy: RetryPolicy = { maxRetries: 0, retryDelayMs: 0 };
     #status: TaskStatus = "pending";
 
-    constructor(options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, TPossibleTaskDependencyId>) {
+    constructor(options: TaskOptions<string, TTaskContext, TTaskReturn, TPossibleTaskDependencyId>) {
         if (options.retryPolicy) {
             this.#validateRetryPolicy(options.retryPolicy);
             this.#retryPolicy = options.retryPolicy;
@@ -141,18 +136,16 @@ export class Task<
      * up to the maximum number of retries specified in the retry policy. Each retry
      * is separated by the retry delay (in ms) specified in the retry policy.
      *
-     * @param {TTaskDependencies} deps - The task dependencies
      * @param {TTaskContext} ctx - The task context
      * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
      * @throws {Error} If the task execution fails after all retry attempts
      */
-    async run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn | null> {
+    async run(ctx: TTaskContext): Promise<TTaskReturn | null> {
         if (!this.isEnabled) {
             this.#status = "skipped";
             return null;
         }
         const input = {
-            deps,
             ctx: ctx as [TPossibleTaskDependencyId] extends [never]
                 ? TTaskContext
                 : ContextWithDependencies<TTaskContext, TPossibleTaskDependencyId>,
