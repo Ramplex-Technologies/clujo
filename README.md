@@ -99,13 +99,13 @@ const tasks = new TaskGraph({
 })
   .addTask({
     id: "task1",
-    execute: async ({ ctx }) => {
+    execute: async (ctx) => {
       return "Task 1 result";
     },
   })
   .addTask({
     id: "task2",
-    execute: async ({ ctx }) => {
+    execute: async (ctx) => {
       return "Task 2 result";
     },
     // will only execute after task 1 completes
@@ -113,14 +113,14 @@ const tasks = new TaskGraph({
   })
   .addTask({
     id: "task3",
-    execute: async ({ ctx }) => {
+    execute: async (ctx) => {
       return "Task 3 result";
     },
     // since task3 has no dependencies, it will run in parallel with task1 at the start of execution and it does not have guaranteed access to any other task's result
   })
   .build({
       // Optional: provide a (sync or async) function to run when the task graph completes execution that takes in the completed context object
-      // dependencies, and errors (list of TaskError for each task that failed if any errors occurred, otherwise null)
+      // and errors (list of TaskError for each task that failed if any errors occurred, otherwise null)
       onTasksCompleted: (ctx, errors) => console.log(ctx, errors),
   });
 
@@ -307,7 +307,7 @@ const tasks = new TaskGraph({
 })
   .addTask({
     id: "task1",
-    execute: ({ ctx }) => {
+    execute: (ctx) => {
       return "result";
     }
   })
@@ -322,7 +322,7 @@ const tasks = new TaskGraph({
 })
   .addTask({
     id: "task1",
-    execute: ({ ctx }) => {
+    execute: (ctx) => {
       return "result";
     }
   })
@@ -416,10 +416,10 @@ Tasks can have their own error handlers, allowing you to define custom logic for
 ```typescript
 .addTask({
   id: "taskWithErrorHandler",
-  execute: async ({ ctx }) => {
+  execute: async (ctx) => {
     // Task logic
   },
-  errorHandler: async (error, { ctx }) => {
+  errorHandler: async (error, ctx) => {
     console.error("Task failed:", error);
   }
 })
@@ -431,7 +431,7 @@ Another way to monitor / act on errors is to make use of the `onTasksCompleted` 
 new TaskGraph()
     .addTask({
         id: "task",
-        execute: async ({ ctx }) => {...}
+        execute: async (ctx) => {...}
     })
     .build({
         onTasksCompleted: (ctx, errors) => {
@@ -449,7 +449,7 @@ Specify a retry policy for a task to automatically retry failed executions. The 
 ```typescript
 .addTask({
   id: "taskWithRetry",
-  execute: async ({ ctx }) => {
+  execute: async (ctx) => {
     // Task logic
   },
   retryPolicy: { maxRetries: 3, retryDelayMs: 1000 }

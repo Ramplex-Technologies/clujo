@@ -40,7 +40,7 @@ describe("Task Class", () => {
     test("run executes task successfully", async () => {
         const task = new Task({
             id: "test-task",
-            execute: async ({ ctx }) => `${ctx.initial}`,
+            execute: async (ctx) => `${ctx.initial}`,
         });
 
         const result = await task.run({ initial: "ctx" });
@@ -52,7 +52,7 @@ describe("Task Class", () => {
     test("run skips disabled task", async () => {
         const task = new Task({
             id: "test-task",
-            execute: async ({ ctx }) => `${ctx.initial}`,
+            execute: async (ctx) => `${ctx.initial}`,
             enabled: false,
         });
 
@@ -237,7 +237,7 @@ describe("Task Class", () => {
         test("enabled task with dependencies receives correct context", async () => {
             const task = new Task({
                 id: "context-test-task",
-                execute: async ({ ctx }) => {
+                execute: async (ctx) => {
                     expect(ctx).toEqual({
                         initial: "initial",
                         dep1: "value1",

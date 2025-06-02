@@ -278,7 +278,7 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
         })
             .addTask({
                 id: "syncTask1",
-                execute: ({ ctx }) => {
+                execute: (ctx) => {
                     executionOrder.push("syncTask1");
                     return ctx.initial.initialValue * 2;
                 },
@@ -286,7 +286,7 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
             .addTask({
                 id: "asyncTask1",
                 dependencies: ["syncTask1"],
-                execute: async ({ ctx }) => {
+                execute: async (ctx) => {
                     if (!ctx.syncTask1) {
                         throw new Error("syncTask1 not found in context");
                     }
@@ -298,7 +298,7 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
             .addTask({
                 id: "syncTask2",
                 dependencies: ["syncTask1"],
-                execute: ({ ctx }) => {
+                execute: (ctx) => {
                     if (!ctx.syncTask1) {
                         throw new Error("syncTask1 not found in context");
                     }
@@ -309,7 +309,7 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
             .addTask({
                 id: "asyncTask2",
                 dependencies: ["asyncTask1", "syncTask2"],
-                execute: async ({ ctx }) => {
+                execute: async (ctx) => {
                     if (!ctx.asyncTask1 || !ctx.syncTask2) {
                         throw new Error("asyncTask1 or syncTask2 not found in context");
                     }
@@ -365,7 +365,7 @@ describe("TaskGraphRunner - Complex Scenarios", () => {
             .addTask({
                 id: "task4",
                 dependencies: ["task2", "task3"],
-                execute: ({ ctx }) => `${ctx.task2} - ${ctx.task3}`,
+                execute: (ctx) => `${ctx.task2} - ${ctx.task3}`,
             })
             .build({
                 onTasksCompleted: (ctx, errors) => {

@@ -46,11 +46,9 @@ export type TaskOptions<
     TTaskContext extends Record<string, unknown> & { initial: unknown },
     TTaskReturn,
     TPossibleTaskDependencyId extends string = never,
-    TInput = {
-        ctx: [TPossibleTaskDependencyId] extends [never]
-            ? TTaskContext
-            : ContextWithDependencies<TTaskContext, TPossibleTaskDependencyId>;
-    },
+    TInput = [TPossibleTaskDependencyId] extends [never]
+        ? TTaskContext
+        : ContextWithDependencies<TTaskContext, TPossibleTaskDependencyId>,
 > = {
     /**
      * The unique ID of the task.
@@ -69,29 +67,29 @@ export type TaskOptions<
     retryPolicy?: RetryPolicy;
     /**
      * The function that executes the task.
-     * This function receives the task dependencies and context as input. It can be synchronous or asynchronous.
+     * This function receives the task context as input. It can be synchronous or asynchronous.
      *
-     * @param input - The input object containing the task dependencies and context
+     * @param ctx - The task context
      * @returns The return value of the task
      * @throws An error if the task execution fails after all retry attempts
      */
-    execute: (input: TInput) => Promise<TTaskReturn> | TTaskReturn;
+    execute: (ctx: TInput) => Promise<TTaskReturn> | TTaskReturn;
     /**
      * An optional error handler for the task.
-     * This function receives an error and the input object as input. It can be synchronous or asynchronous.
+     * This function receives an error and the context as input. It can be synchronous or asynchronous.
      * When an error handler is provided, it will be invoked when the task execution fails after all retry attempts.
      * The error will still be thrown after the error handler has been executed.
      *
      * @param err - The error that occurred during task execution
-     * @param input - The input object containing the task dependencies and context
+     * @param ctx - The task context
      * @returns A promise that resolves when the error has been handled
      * @default console.error
      */
-    errorHandler?: (err: Error, input: TInput) => Promise<void> | void;
+    errorHandler?: (err: Error, ctx: TInput) => Promise<void> | void;
 };
 
 /**
- * Represents a task that can be executed. A task takes a set of dependencies and a context as input,
+ * Represents a task that can be executed. A task takes a context as input,
  * and returns a (potentially void) value when executed.
  *
  * @template TTaskContext - Type of task context
@@ -132,7 +130,7 @@ export class Task<
     }
 
     /**
-     * Executes the task with the given dependencies and context, retrying if necessary
+     * Executes the task with the given context, retrying if necessary
      * up to the maximum number of retries specified in the retry policy. Each retry
      * is separated by the retry delay (in ms) specified in the retry policy.
      *
@@ -145,16 +143,14 @@ export class Task<
             this.#status = "skipped";
             return null;
         }
-        const input = {
-            ctx: ctx as [TPossibleTaskDependencyId] extends [never]
-                ? TTaskContext
-                : ContextWithDependencies<TTaskContext, TPossibleTaskDependencyId>,
-        };
+        const contextToPass = ctx as [TPossibleTaskDependencyId] extends [never]
+            ? TTaskContext
+            : ContextWithDependencies<TTaskContext, TPossibleTaskDependencyId>;
         // we retry maxRetries times on top of the initial attempt
         for (let attempt = 0; attempt < this.#retryPolicy.maxRetries + 1; attempt++) {
             try {
                 this.#status = "running";
-                const result = await this.#options.execute(input);
+                const result = await this.#options.execute(contextToPass);
                 this.#status = "completed";
                 return result;
             } catch (err) {
@@ -163,7 +159,7 @@ export class Task<
                     const error = err instanceof Error ? err : new Error(`Non error throw: ${String(err)}`);
                     try {
                         if (this.#options.errorHandler) {
-                            await this.#options.errorHandler(error, input);
+                            await this.#options.errorHandler(error, contextToPass);
                         } else {
                             console.error(`Error in task ${this.#options.id}: ${err}`);
                         }

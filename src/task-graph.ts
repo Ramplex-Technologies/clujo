@@ -42,18 +42,16 @@ type DeepReadonly<T> = {
  */
 export class TaskGraph<
     TInitialTaskContext = undefined,
-    TTaskContext extends Record<string, unknown> & {
-        readonly initial: DeepReadonly<TInitialTaskContext>;
-    } = {
+    TTaskContext extends Record<string, unknown> = {
         readonly initial: DeepReadonly<TInitialTaskContext>;
     },
-    TAllDependencyIds extends string & keyof TTaskContext = never,
+    TAllDependencyIds extends string = never,
 > {
     readonly #contextValueOrFactory:
         | TInitialTaskContext
         | (() => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>)
         | undefined = undefined;
-    readonly #tasks = new Map<string, Task<TTaskContext, unknown, string>>();
+    readonly #tasks = new Map<string, Task<TTaskContext & { readonly initial: DeepReadonly<TInitialTaskContext> }, unknown, string>>();
     readonly #taskDependencies = new DependencyMap();
     readonly #topologicalOrder: string[] = [];
 
@@ -110,7 +108,7 @@ export class TaskGraph<
      * @throws {Error} If a specified dependency task has not been added to the graph yet.
      */
     addTask<TTaskId extends string, TTaskReturn, TTaskDependencyIds extends TAllDependencyIds = never>(
-        options: TaskOptions<TTaskId, TTaskContext, TTaskReturn, TTaskDependencyIds>,
+        options: TaskOptions<TTaskId, TTaskContext & { readonly initial: DeepReadonly<TInitialTaskContext> }, TTaskReturn, TTaskDependencyIds>,
     ): TaskGraph<
         TInitialTaskContext,
         TTaskContext & { readonly [K in TTaskId]?: TTaskReturn },
@@ -158,7 +156,7 @@ export class TaskGraph<
         onTasksCompleted,
     }: {
         onTasksCompleted?: (ctx: DeepReadonly<TTaskContext>, errors: TaskError[] | null) => void | Promise<void>;
-    } = {}): TaskGraphRunner<TInitialTaskContext, TTaskContext> {
+    } = {}): TaskGraphRunner<TInitialTaskContext, TTaskContext & { readonly initial: DeepReadonly<TInitialTaskContext> }> {
         if (!this.size) {
             throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
         }
@@ -166,7 +164,7 @@ export class TaskGraph<
             throw new Error("onTasksCompleted must be a function (sync or async).");
         }
         this.#topologicalSort();
-        return new TaskGraphRunner<TInitialTaskContext, TTaskContext>(
+        return new TaskGraphRunner<TInitialTaskContext, TTaskContext & { readonly initial: DeepReadonly<TInitialTaskContext> }>(
             this.#contextValueOrFactory,
             this.#topologicalOrder,
             this.#tasks,

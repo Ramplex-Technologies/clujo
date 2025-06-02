@@ -134,7 +134,7 @@ describe("Clujo", () => {
                 .addTask({
                     id: "task2",
                     dependencies: ["task1"],
-                    execute: ({ ctx }) => Promise.resolve(`${ctx.task1}-result2`),
+                    execute: (ctx) => Promise.resolve(`${ctx.task1}-result2`),
                 })
                 .build();
 
