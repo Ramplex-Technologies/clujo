@@ -19,7 +19,7 @@ declare class Scheduler {
      * @param input.job - The Clujo job to be added.
      * @param input.completionHandler - Optional function to invoke after the job completes.
      */
-    addJob(job: Clujo<any, any>): void;
+    addJob(job: Clujo): void;
     /**
      * Starts all added jobs in the scheduler.
      *

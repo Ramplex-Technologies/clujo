@@ -39,8 +39,7 @@ export class Scheduler {
      * @param input.completionHandler - Optional function to invoke after the job completes.
      */
 
-    // biome-ignore lint/suspicious/noExplicitAny: handle any Clujo
-    addJob(job: Clujo<any, any>) {
+    addJob(job: Clujo) {
         if (this.#jobs.some((addedJob) => addedJob.id === job.id)) {
             throw new Error(`Job with id ${job.id} is already added to the scheduler.`);
         }

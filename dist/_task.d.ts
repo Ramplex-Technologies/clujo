@@ -3,19 +3,15 @@ type ContextWithDependencies<TContext extends Record<string, unknown>, TDependen
  * Represents the options for a task.
  *
  * @template TTaskId - string literal type representing the task ID
- * @template TTaskDependencies - Type of task dependencies passed into the task execution function
  * @template TTaskContext - Type of task context passed into the task execution function
  * @template TTaskReturn - Type of task return value
  * @template TPossibleTaskDependencyId - string literal type representing the possible dependencies of this task
  * @template TInput - Type of the input object passed into the task execution function and error handler
  *
  */
-type TaskOptions<TTaskId extends string, TTaskDependencies extends Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
+type TaskOptions<TTaskId extends string, TTaskContext extends Record<string, unknown> & {
     initial: unknown;
-}, TTaskReturn, TPossibleTaskDependencyId extends string = never, TInput = {
-    deps: TTaskDependencies;
-    ctx: [TPossibleTaskDependencyId] extends [never] ? TTaskContext : ContextWithDependencies<TTaskContext, TPossibleTaskDependencyId>;
-}> = {
+}, TTaskReturn, TPossibleTaskDependencyId extends string = never, TInput = [TPossibleTaskDependencyId] extends [never] ? TTaskContext : ContextWithDependencies<TTaskContext, TPossibleTaskDependencyId>> = {
     /**
      * The unique ID of the task.
      */
@@ -33,39 +29,38 @@ type TaskOptions<TTaskId extends string, TTaskDependencies extends Record<string
     retryPolicy?: RetryPolicy;
     /**
      * The function that executes the task.
-     * This function receives the task dependencies and context as input. It can be synchronous or asynchronous.
+     * This function receives the task context as input. It can be synchronous or asynchronous.
      *
-     * @param input - The input object containing the task dependencies and context
+     * @param ctx - The task context
      * @returns The return value of the task
      * @throws An error if the task execution fails after all retry attempts
      */
-    execute: (input: TInput) => Promise<TTaskReturn> | TTaskReturn;
+    execute: (ctx: TInput) => Promise<TTaskReturn> | TTaskReturn;
     /**
      * An optional error handler for the task.
-     * This function receives an error and the input object as input. It can be synchronous or asynchronous.
+     * This function receives an error and the context as input. It can be synchronous or asynchronous.
      * When an error handler is provided, it will be invoked when the task execution fails after all retry attempts.
      * The error will still be thrown after the error handler has been executed.
      *
      * @param err - The error that occurred during task execution
-     * @param input - The input object containing the task dependencies and context
+     * @param ctx - The task context
      * @returns A promise that resolves when the error has been handled
      * @default console.error
      */
-    errorHandler?: (err: Error, input: TInput) => Promise<void> | void;
+    errorHandler?: (err: Error, ctx: TInput) => Promise<void> | void;
 };
 /**
- * Represents a task that can be executed. A task takes a set of dependencies and a context as input,
+ * Represents a task that can be executed. A task takes a context as input,
  * and returns a (potentially void) value when executed.
  *
- * @template TTaskDependencies - Type of task dependencies
  * @template TTaskContext - Type of task context
  * @template TTaskReturn - Type of task return value
  */
-declare class Task<TTaskDependencies extends Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
+declare class Task<TTaskContext extends Record<string, unknown> & {
     initial: unknown;
 }, TTaskReturn, TPossibleTaskDependencyId extends string = never> {
     #private;
-    constructor(options: TaskOptions<string, TTaskDependencies, TTaskContext, TTaskReturn, TPossibleTaskDependencyId>);
+    constructor(options: TaskOptions<string, TTaskContext, TTaskReturn, TPossibleTaskDependencyId>);
     /**
      * Return whether this task is enabled or not
      */
@@ -77,16 +72,15 @@ declare class Task<TTaskDependencies extends Record<string, unknown>, TTaskConte
      */
     get id(): string;
     /**
-     * Executes the task with the given dependencies and context, retrying if necessary
+     * Executes the task with the given context, retrying if necessary
      * up to the maximum number of retries specified in the retry policy. Each retry
      * is separated by the retry delay (in ms) specified in the retry policy.
      *
-     * @param {TTaskDependencies} deps - The task dependencies
      * @param {TTaskContext} ctx - The task context
      * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
      * @throws {Error} If the task execution fails after all retry attempts
      */
-    run(deps: TTaskDependencies, ctx: TTaskContext): Promise<TTaskReturn | null>;
+    run(ctx: TTaskContext): Promise<TTaskReturn | null>;
     /**
      * Gets the status of the task.
      *
