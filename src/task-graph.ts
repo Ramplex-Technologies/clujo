@@ -36,55 +36,40 @@ type DeepReadonly<T> = {
  * Represents a task graph which tasks can be added to
  * When built, the graph will be sorted topologically and returned as a `TaskGraphRunner` instance.
  *
- * @template TTaskDependencies - Type of the dependencies each task will receive
  * @template TInitialTaskContext - Type of the context in the `initial` key that each task will receive
  * @template TTaskContext - Type of the context each task will receive
  * @template TAllDependencyIds - The task IDs that can be used as dependencies for new tasks
  */
 export class TaskGraph<
-    TTaskDependencies extends Record<string, unknown> = never,
     TInitialTaskContext = undefined,
-    TTaskContext extends Record<string, unknown> & {
-        readonly initial: DeepReadonly<TInitialTaskContext>;
-    } = {
+    TTaskContext extends Record<string, unknown> = {
         readonly initial: DeepReadonly<TInitialTaskContext>;
     },
-    TAllDependencyIds extends string & keyof TTaskContext = never,
+    TAllDependencyIds extends string = never,
 > {
     readonly #contextValueOrFactory:
         | TInitialTaskContext
-        | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>)
+        | (() => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>)
         | undefined = undefined;
-    readonly #dependencies: TTaskDependencies = Object.create(null);
-    readonly #tasks = new Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>();
+    readonly #tasks = new Map<
+        string,
+        Task<TTaskContext & { readonly initial: DeepReadonly<TInitialTaskContext> }, unknown, string>
+    >();
     readonly #taskDependencies = new DependencyMap();
     readonly #topologicalOrder: string[] = [];
 
     constructor(
         options?:
             | {
-                  dependencies?: TTaskDependencies;
                   contextValue?: TInitialTaskContext;
               }
             | {
-                  dependencies?: TTaskDependencies;
-                  contextFactory: (deps: TTaskDependencies) => TInitialTaskContext | Promise<TInitialTaskContext>;
+                  contextFactory: () => TInitialTaskContext | Promise<TInitialTaskContext>;
               },
     ) {
         // Early return if no options provided
         if (!options) {
             return;
-        }
-
-        // Validate dependencies
-        if ("dependencies" in options) {
-            if (options.dependencies === undefined) {
-                this.#dependencies = Object.create(null);
-            } else if (!this.#isValidDependencies(options.dependencies)) {
-                throw new Error("Dependencies must be a non-null object with defined properties");
-            } else {
-                this.#dependencies = options.dependencies;
-            }
         }
 
         // Validate only one of the context options
@@ -115,7 +100,7 @@ export class TaskGraph<
      * @template TTaskReturn The return type of the task.
      * @param options The configuration options for the task:
      * @param options.id A unique identifier for the task.
-     * @param options.execute A function that performs the task's operation. It receives an object with `deps` (dependencies) and `ctx` (context) properties.
+     * @param options.execute A function that performs the task's operation. It receives an object with the `ctx` (context) property.
      * @param options.dependencies An optional array of task IDs that this task depends on. If not provided, the task will be executed immediately on start.
      * @param options.retryPolicy An optional retry policy for the task, specifying maxRetries and retryDelayMs. Defaults to no retries.
      * @param options.errorHandler An optional function to handle errors that occur during task execution. Defaults to `console.error`.
@@ -126,14 +111,21 @@ export class TaskGraph<
      * @throws {Error} If a specified dependency task has not been added to the graph yet.
      */
     addTask<TTaskId extends string, TTaskReturn, TTaskDependencyIds extends TAllDependencyIds = never>(
-        options: TaskOptions<TTaskId, TTaskDependencies, TTaskContext, TTaskReturn, TTaskDependencyIds>,
+        options: TaskOptions<
+            TTaskId,
+            TTaskContext & { readonly initial: DeepReadonly<TInitialTaskContext> },
+            TTaskReturn,
+            TTaskDependencyIds
+        >,
     ): TaskGraph<
-        TTaskDependencies,
         TInitialTaskContext,
         TTaskContext & { readonly [K in TTaskId]?: TTaskReturn },
         TAllDependencyIds | TTaskId
     > {
         const taskId = options.id;
+        if (options.id === "initial") {
+            throw new Error(`Task with id '${options.id}' cannot be created. 'initial' is a reserved keyword.`);
+        }
         if (this.#tasks.has(taskId)) {
             throw new Error(`Task with id ${taskId} already exists`);
         }
@@ -171,12 +163,11 @@ export class TaskGraph<
     build({
         onTasksCompleted,
     }: {
-        onTasksCompleted?: (
-            ctx: DeepReadonly<TTaskContext>,
-            deps: TTaskDependencies,
-            errors: TaskError[] | null,
-        ) => void | Promise<void>;
-    } = {}): TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext> {
+        onTasksCompleted?: (ctx: DeepReadonly<TTaskContext>, errors: TaskError[] | null) => void | Promise<void>;
+    } = {}): TaskGraphRunner<
+        TInitialTaskContext,
+        TTaskContext & { readonly initial: DeepReadonly<TInitialTaskContext> }
+    > {
         if (!this.size) {
             throw new Error("Unable to build TaskGraphRunner. No tasks added to the graph");
         }
@@ -184,14 +175,10 @@ export class TaskGraph<
             throw new Error("onTasksCompleted must be a function (sync or async).");
         }
         this.#topologicalSort();
-        return new TaskGraphRunner<TTaskDependencies, TInitialTaskContext, TTaskContext>(
-            this.#dependencies,
-            this.#contextValueOrFactory,
-            this.#topologicalOrder,
-            this.#tasks,
-            this.#taskDependencies,
-            onTasksCompleted,
-        );
+        return new TaskGraphRunner<
+            TInitialTaskContext,
+            TTaskContext & { readonly initial: DeepReadonly<TInitialTaskContext> }
+        >(this.#contextValueOrFactory, this.#topologicalOrder, this.#tasks, this.#taskDependencies, onTasksCompleted);
     }
 
     /**
@@ -231,64 +218,36 @@ export class TaskGraph<
         visited.clear();
         temp.clear();
     }
-
-    // validate the dependencies object
-    #isValidDependencies(deps: unknown): deps is TTaskDependencies {
-        return (
-            typeof deps === "object" &&
-            deps !== null &&
-            !Array.isArray(deps) &&
-            Object.entries(deps).every(([key, value]) => typeof key === "string" && value !== undefined)
-        );
-    }
 }
 
 /**
  * Represents a task graph runner that executes tasks in a topologically sorted order.
  * It assumes the passed tasks are already topologically sorted.
  *
- * @template TTaskDependencies - Type of the dependencies each task will receive
  * @template TTaskContext - Type of the context each task will receive
  */
-export class TaskGraphRunner<
-    TTaskDependencies extends Record<string, unknown>,
-    TInitialTaskContext,
-    TTaskContext extends Record<string, unknown> & { initial: unknown },
-> {
+export class TaskGraphRunner<TInitialTaskContext, TTaskContext extends Record<string, unknown> & { initial: unknown }> {
     readonly #context = new Context<TInitialTaskContext, TTaskContext>();
-    readonly #dependencies: TTaskDependencies;
     readonly #contextValueOrFactory:
         | undefined
         | TInitialTaskContext
-        | ((deps: TTaskDependencies) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>);
+        | (() => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>);
     readonly #topologicalOrder: string[];
-    readonly #tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>;
+    readonly #tasks: Map<string, Task<TTaskContext, unknown, string>>;
     readonly #taskDependencies: DependencyMap;
-    readonly #onTasksCompleted?: (
-        ctx: TTaskContext,
-        deps: TTaskDependencies,
-        errors: TaskError[] | null,
-    ) => void | Promise<void>;
+    readonly #onTasksCompleted?: (ctx: TTaskContext, errors: TaskError[] | null) => void | Promise<void>;
     readonly #errors: TaskError[] = [];
 
     constructor(
-        dependencies: TTaskDependencies,
         contextValueOrFactory:
             | undefined
             | TInitialTaskContext
-            | ((
-                  deps: TTaskDependencies,
-              ) => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>),
+            | (() => DeepReadonly<TInitialTaskContext> | Promise<DeepReadonly<TInitialTaskContext>>),
         topologicalOrder: string[],
-        tasks: Map<string, Task<TTaskDependencies, TTaskContext, unknown, string>>,
+        tasks: Map<string, Task<TTaskContext, unknown, string>>,
         taskDependencies: DependencyMap,
-        onTasksCompleted?: (
-            ctx: TTaskContext,
-            deps: TTaskDependencies,
-            errors: TaskError[] | null,
-        ) => void | Promise<void>,
+        onTasksCompleted?: (ctx: TTaskContext, errors: TaskError[] | null) => void | Promise<void>,
     ) {
-        this.#dependencies = dependencies;
         this.#contextValueOrFactory = contextValueOrFactory;
         this.#topologicalOrder = topologicalOrder;
         this.#tasks = tasks;
@@ -304,11 +263,7 @@ export class TaskGraphRunner<
         if (this.#contextValueOrFactory) {
             value =
                 typeof this.#contextValueOrFactory === "function"
-                    ? await (
-                          this.#contextValueOrFactory as (
-                              deps: TTaskDependencies,
-                          ) => TInitialTaskContext | Promise<TInitialTaskContext>
-                      )(this.#dependencies)
+                    ? await (this.#contextValueOrFactory as () => TInitialTaskContext | Promise<TInitialTaskContext>)()
                     : this.#contextValueOrFactory;
             this.#context.reset(value);
         }
@@ -332,7 +287,7 @@ export class TaskGraphRunner<
             }
 
             try {
-                const result = await task.run(this.#dependencies, this.#context.value);
+                const result = await task.run(this.#context.value);
                 await this.#context.update({ [taskId]: result });
                 completed.add(taskId);
             } catch (err) {
@@ -387,11 +342,7 @@ export class TaskGraphRunner<
         }
 
         if (this.#onTasksCompleted) {
-            await this.#onTasksCompleted(
-                this.#context.value,
-                this.#dependencies,
-                this.#errors.length > 0 ? this.#errors : null,
-            );
+            await this.#onTasksCompleted(this.#context.value, this.#errors.length > 0 ? this.#errors : null);
         }
 
         return this.#context.value;

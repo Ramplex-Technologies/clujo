@@ -7,7 +7,6 @@ var Scheduler = class {
    * @param input.job - The Clujo job to be added.
    * @param input.completionHandler - Optional function to invoke after the job completes.
    */
-  // biome-ignore lint/suspicious/noExplicitAny: handle any Clujo
   addJob(job) {
     if (this.#jobs.some((addedJob) => addedJob.id === job.id)) {
       throw new Error(`Job with id ${job.id} is already added to the scheduler.`);

@@ -9,7 +9,6 @@ import './error.js';
 /**
  * Represents a Clujo instance, which is a cron job that executes a task graph.
  *
- * @template TTaskDependencies - Type of the dependencies each task will receive
  * @template TTaskContext - Type of the context each task will receive
 
  * @param input The input to the Clujo constructor.
@@ -37,7 +36,7 @@ import './error.js';
  *   redis: { client: myRedisClient }
  * });
  */
-declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<string, unknown>, TTaskContext extends Record<string, unknown> & {
+declare class Clujo<TTaskContext extends Record<string, unknown> & {
     initial: unknown;
 } = Record<string, unknown> & {
     initial: unknown;
@@ -45,7 +44,7 @@ declare class Clujo<TTaskDependencies extends Record<string, unknown> = Record<s
     #private;
     constructor({ id, taskGraphRunner, cron, enabled, runOnStartup, redis, logger, }: {
         id: string;
-        taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
+        taskGraphRunner: TaskGraphRunner<TTaskContext["initial"], TTaskContext>;
         cron: ({
             pattern: string | Date;
         } | {

@@ -1,5 +1,5 @@
 // src/_task.ts
-import { promisify } from "node:util";
+import { promisify } from "util";
 var Task = class {
   #options;
   #retryPolicy = { maxRetries: 0, retryDelayMs: 0 };
@@ -26,28 +26,24 @@ var Task = class {
     return this.#options.id;
   }
   /**
-   * Executes the task with the given dependencies and context, retrying if necessary
+   * Executes the task with the given context, retrying if necessary
    * up to the maximum number of retries specified in the retry policy. Each retry
    * is separated by the retry delay (in ms) specified in the retry policy.
    *
-   * @param {TTaskDependencies} deps - The task dependencies
    * @param {TTaskContext} ctx - The task context
    * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
    * @throws {Error} If the task execution fails after all retry attempts
    */
-  async run(deps, ctx) {
+  async run(ctx) {
     if (!this.isEnabled) {
       this.#status = "skipped";
       return null;
     }
-    const input = {
-      deps,
-      ctx
-    };
+    const contextToPass = ctx;
     for (let attempt = 0; attempt < this.#retryPolicy.maxRetries + 1; attempt++) {
       try {
         this.#status = "running";
-        const result = await this.#options.execute(input);
+        const result = await this.#options.execute(contextToPass);
         this.#status = "completed";
         return result;
       } catch (err) {
@@ -56,7 +52,7 @@ var Task = class {
           const error = err instanceof Error ? err : new Error(`Non error throw: ${String(err)}`);
           try {
             if (this.#options.errorHandler) {
-              await this.#options.errorHandler(error, input);
+              await this.#options.errorHandler(error, contextToPass);
             } else {
               console.error(`Error in task ${this.#options.id}: ${err}`);
             }

@@ -2,6 +2,10 @@
 
 **IMPORTANT**: clujo is now published under `@ramplex/clujo` on npm and jsr. If you are using the old `clujo` package, please update your dependencies to use `@ramplex/clujo` instead. All future versions will be published under the new package name.
 
+## 🚨 v4.0.0 Breaking Changes
+
+Clujo v4.0.0 introduces significant API simplifications. If you're upgrading from v3.x, please see the [Migration Guide](#migrating-from-v3x-to-v40) section.
+
 Clujo is a flexible solution for managing scheduled tasks in your distributed Node.js / Deno applications. It would not be possible without the amazing work of the following projects:
 
 - [Croner](https://github.com/Hexagon/croner/tree/master?tab=readme-ov-file): used for running task graphs on a cron schedule
@@ -17,7 +21,7 @@ Coming soon: validated bun support.
     - [npm](#npm-registry)
     - [jsr](jsr-registry)
 - [Quick Start](#quick-start)
-    [Using the Task Graph](#using-the-task-graph)
+    - [Using the Task Graph](#using-the-task-graph)
 - [Advanced Usage](#advanced-usage)
   - [Understanding Dependency Execution](#understanding-dependency-execution)
     - [Context object](#context-object)
@@ -36,6 +40,7 @@ Coming soon: validated bun support.
   - [Adding Jobs to the Scheduler](#adding-jobs-to-the-scheduler)
   - [Starting All Jobs](#starting-all-jobs)
   - [Stopping All Jobs](#stopping-all-jobs)
+- [Migrating from v3.x to v4.0](#migrating-from-v3x-to-v40)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -96,23 +101,20 @@ import { TaskGraph, Clujo } from '@ramplex/clujo';
 const tasks = new TaskGraph({
   // Optional: provide initial context value
   contextValue: { initialData: "some value" },
-  // Optional: provide dependencies available to all tasks
-  dependencies: { logger: console }
 })
   .addTask({
     id: "task1",
-    execute: async ({ deps, ctx }) => {
-      deps.logger.log("Task 1 executing");
-      deps.logger.log("Initial data:", ctx.initial.initialData);
+    execute: async (ctx) => {
+      // Access initial context at ctx.initial
+      console.log("Initial data:", ctx.initial?.initialData);
       return "Task 1 result";
     },
   })
   .addTask({
     id: "task2",
-    execute: async ({ deps, ctx }) => {
-      deps.logger.log("Task 2 executing");
-      // since task2 depends on task1, it will have access to the result of task1
-      deps.logger.log("Task 1 result:", ctx.task1);
+    execute: async (ctx) => {
+      // Access task1's result directly from context
+      console.log("Task 1 result:", ctx.task1);
       return "Task 2 result";
     },
     // will only execute after task 1 completes
@@ -120,16 +122,20 @@ const tasks = new TaskGraph({
   })
   .addTask({
     id: "task3",
-    execute: async ({ deps, ctx }) => {
-      deps.logger.log("Task 3 executing");
+    execute: async (ctx) => {
       return "Task 3 result";
     },
-    // since task3 has no dependencies, it will run in parallel with task1 at the start of execution and it does not have guaranteed access to any other task's result
+    // since task3 has no dependencies, it will run in parallel with task1 at the start of execution
   })
   .build({
-      // Optional: provide a (sync or async) function to run when the task graph completes execution that takes in the completed context object
-      // dependencies, and errors (list of TaskError for each task that failed if any errors occurred, otherwise null)
-      onTasksCompleted: (ctx, deps, errors) => console.log(ctx, deps, errors),
+      // Optional: provide a (sync or async) function to run when the task graph completes execution
+      // that takes in the completed context object and errors (list of TaskError for each task that failed if any errors occurred, otherwise null)
+      onTasksCompleted: (ctx, errors) => {
+        if (errors) {
+          console.error("Some tasks failed:", errors);
+        }
+        console.log("Final context:", ctx);
+      },
   });
 
 // Create a Clujo instance
@@ -189,12 +195,14 @@ If provided, the `onTaskCompleted` will invoke before the promise resolves.
 
 The context object contains the appropriate context for the task.
 
- - All tasks have access to a context object which allows sharing values between tasks
+ - All tasks receive a context object as their only parameter
+ - The initial context (if provided) is available at `ctx.initial`
  - If task `i` depends on tasks `j_1,...,j_n`, then it can be guaranteed the context object will have the result of tasks `j_1,...,j_n` under the keys `j_1,...,j_n`. The value at these keys is the return of task `j_i`, `i = 1,...,n`.
  - The context object is read-only. Modifying the context object directly will not be reflected in the context object and will result in a runtime error (in strict mode).
- - If a task has no dependencies it has guaranteed access to the initial context object only (if it was set).
+ - If a task has no dependencies it has guaranteed access to the initial context object only (if it was set) at `ctx.initial`.
  - A task attempting to access a task result from a task it does not depend on is undefined behavior. If the task has run,
     the value will be present in the context object, but it is not guaranteed to be present.
+ - **Important**: The task ID `"initial"` is reserved and cannot be used as a task identifier.
 
 ### Task execution
 
@@ -312,12 +320,12 @@ test Structure:
 // Using a static context value
 const tasks = new TaskGraph({
   contextValue: { users: [], config: {} },
-  dependencies: { logger: console }
 })
   .addTask({
     id: "task1",
-    execute: ({ deps, ctx }) => {
-      deps.logger.log(ctx.initial.users);
+    execute: (ctx) => {
+      // Access initial context at ctx.initial
+      console.log("Users:", ctx.initial?.users);
       return "result";
     }
   })
@@ -325,16 +333,16 @@ const tasks = new TaskGraph({
 
 // Using a (sync or async) context factory
 const tasks = new TaskGraph({
-  contextFactory: async (deps) => {
+  contextFactory: async () => {
     const users = await fetchUsers();
     return { users };
   },
-  dependencies: { logger: console }
 })
   .addTask({
     id: "task1",
-    execute: ({ deps, ctx }) => {
-      deps.logger.log(ctx.initial.users);
+    execute: (ctx) => {
+      // Access initial context at ctx.initial
+      console.log("Users:", ctx.initial?.users);
       return "result";
     }
   })
@@ -428,11 +436,14 @@ Tasks can have their own error handlers, allowing you to define custom logic for
 ```typescript
 .addTask({
   id: "taskWithErrorHandler",
-  execute: async ({ deps, ctx }) => {
-    // Task logic
+  execute: async (ctx) => {
+    // Task logic that might throw
+    throw new Error("Something went wrong");
   },
-  errorHandler: async (error, { deps, ctx }) => {
+  errorHandler: async (error, ctx) => {
     console.error("Task failed:", error);
+    // Access context including results from dependencies
+    console.log("Context at error:", ctx);
   }
 })
 ```
@@ -443,10 +454,10 @@ Another way to monitor / act on errors is to make use of the `onTasksCompleted` 
 new TaskGraph()
     .addTask({
         id: "task",
-        execute: async ({ deps, ctx }) => {...}
+        execute: async (ctx) => {...}
     })
     .build({
-        onTasksCompleted: (ctx, deps, errors) => {
+        onTasksCompleted: (ctx, errors) => {
             for (const error of errors) {
                 console.error(`${error.id} failed: ${error.message}`)
             }
@@ -461,7 +472,7 @@ Specify a retry policy for a task to automatically retry failed executions. The 
 ```typescript
 .addTask({
   id: "taskWithRetry",
-  execute: async ({ deps, ctx }) => {
+  execute: async (ctx) => {
     // Task logic
   },
   retryPolicy: { maxRetries: 3, retryDelayMs: 1000 }
@@ -507,6 +518,166 @@ await scheduler.stop();
 
 // Or, specify a custom timeout in milliseconds
 await scheduler.stop(10000);
+```
+
+# Migrating from v3.x to v4.0
+
+Version 4.0 introduces significant API simplifications. The main change is the removal of the separate `deps` parameter - tasks now receive context directly.
+
+## Key Breaking Changes
+
+### 1. Task Execute Function Signature
+```typescript
+// Before (v3.x)
+.addTask({
+  id: "myTask",
+  execute: async ({ deps, ctx }) => {
+    const dep1Result = deps.dep1;
+    const initialData = ctx.initialData;
+    return "result";
+  },
+  dependencies: ["dep1"]
+})
+
+// After (v4.0)
+.addTask({
+  id: "myTask",
+  execute: async (ctx) => {
+    const dep1Result = ctx.dep1;  // Dependencies are now on context directly
+    const initialData = ctx.initial?.initialData;  // Initial context at ctx.initial
+    return "result";
+  },
+  dependencies: ["dep1"]
+})
+```
+
+### 2. Context Factory Changes
+```typescript
+// Before (v3.x)
+new TaskGraph({
+  contextFactory: async (deps) => {
+    // deps parameter is no longer provided
+    return { data: await fetchData() };
+  }
+})
+
+// After (v4.0)
+new TaskGraph({
+  contextFactory: async () => {
+    // No deps parameter
+    return { data: await fetchData() };
+  }
+})
+```
+
+### 3. Error Handler Signature
+```typescript
+// Before (v3.x)
+errorHandler: async (error, { deps, ctx }) => {
+  console.error("Failed with deps:", deps);
+}
+
+// After (v4.0)
+errorHandler: async (error, ctx) => {
+  console.error("Failed with context:", ctx);
+}
+```
+
+### 4. onTasksCompleted Callback
+```typescript
+// Before (v3.x)
+.build({
+  onTasksCompleted: (ctx, deps, errors) => {
+    console.log("Dependencies:", deps);
+  }
+})
+
+// After (v4.0)
+.build({
+  onTasksCompleted: (ctx, errors) => {
+    // No deps parameter
+    console.log("Final context:", ctx);
+  }
+})
+```
+
+### 5. Reserved Task ID
+The task ID `"initial"` is now reserved and cannot be used as a task identifier.
+
+## Migration Steps
+
+1. **Update all task `execute` functions**: Remove destructuring of `{ deps, ctx }` and use `ctx` directly
+2. **Access dependencies from context**: Change `deps.taskId` to `ctx.taskId`
+3. **Access initial context**: Change `ctx.someValue` to `ctx.initial?.someValue`
+4. **Update error handlers**: Remove the `deps` parameter
+5. **Update context factories**: Remove the `deps` parameter
+6. **Update onTasksCompleted**: Remove the `deps` parameter
+7. **Rename any tasks using "initial" as ID**: This is now a reserved keyword
+
+## Complete Migration Example
+
+### Before (v3.x)
+```typescript
+const tasks = new TaskGraph({
+  contextValue: { apiKey: "secret" }
+})
+  .addTask({
+    id: "fetchUser",
+    execute: async ({ ctx }) => {
+      return await api.getUser(ctx.apiKey);
+    }
+  })
+  .addTask({
+    id: "fetchPosts",
+    execute: async ({ deps, ctx }) => {
+      const user = deps.fetchUser;
+      return await api.getUserPosts(user.id, ctx.apiKey);
+    },
+    dependencies: ["fetchUser"],
+    errorHandler: async (error, { deps, ctx }) => {
+      console.error(`Failed to fetch posts for user ${deps.fetchUser.id}`);
+    }
+  })
+  .build({
+    onTasksCompleted: (ctx, deps, errors) => {
+      if (!errors) {
+        console.log("Fetched user:", deps.fetchUser);
+        console.log("Fetched posts:", deps.fetchPosts);
+      }
+    }
+  });
+```
+
+### After (v4.0)
+```typescript
+const tasks = new TaskGraph({
+  contextValue: { apiKey: "secret" }
+})
+  .addTask({
+    id: "fetchUser",
+    execute: async (ctx) => {
+      return await api.getUser(ctx.initial?.apiKey);
+    }
+  })
+  .addTask({
+    id: "fetchPosts",
+    execute: async (ctx) => {
+      const user = ctx.fetchUser;  // Direct access from context
+      return await api.getUserPosts(user.id, ctx.initial?.apiKey);
+    },
+    dependencies: ["fetchUser"],
+    errorHandler: async (error, ctx) => {
+      console.error(`Failed to fetch posts for user ${ctx.fetchUser.id}`);
+    }
+  })
+  .build({
+    onTasksCompleted: (ctx, errors) => {
+      if (!errors) {
+        console.log("Fetched user:", ctx.fetchUser);
+        console.log("Fetched posts:", ctx.fetchPosts);
+      }
+    }
+  });
 ```
 
 # Contributing

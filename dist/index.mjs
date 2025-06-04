@@ -79,7 +79,7 @@ var Cron = class {
         this.#isRunning = false;
       }
     };
-    this.#jobs = Array.isArray(this.#cronExpression) ? this.#cronExpression.map((expression) => new Croner(expression, this.#cronOptions, wrapHandler)) : [new Croner(this.#cronExpression, this.#cronOptions, handler)];
+    this.#jobs = Array.isArray(this.#cronExpression) ? this.#cronExpression.map((expression) => new Croner(expression, this.#cronOptions, wrapHandler)) : [new Croner(this.#cronExpression, this.#cronOptions, wrapHandler)];
   }
   /**
    * Stops the cron job. If the job is currently running, it will wait for the job to finish before stopping it.
@@ -100,8 +100,8 @@ var Cron = class {
           if (Date.now() - startTime > timeout) {
             for (const job of this.#jobs) {
               job.stop();
-              this.#jobs = null;
             }
+            this.#jobs = null;
             resolve();
             return;
           }
@@ -357,7 +357,6 @@ var Scheduler = class {
    * @param input.job - The Clujo job to be added.
    * @param input.completionHandler - Optional function to invoke after the job completes.
    */
-  // biome-ignore lint/suspicious/noExplicitAny: handle any Clujo
   addJob(job) {
     if (this.#jobs.some((addedJob) => addedJob.id === job.id)) {
       throw new Error(`Job with id ${job.id} is already added to the scheduler.`);
@@ -452,7 +451,7 @@ var DependencyMap = class {
 };
 
 // src/_task.ts
-import { promisify } from "node:util";
+import { promisify } from "util";
 var Task = class {
   #options;
   #retryPolicy = { maxRetries: 0, retryDelayMs: 0 };
@@ -479,28 +478,24 @@ var Task = class {
     return this.#options.id;
   }
   /**
-   * Executes the task with the given dependencies and context, retrying if necessary
+   * Executes the task with the given context, retrying if necessary
    * up to the maximum number of retries specified in the retry policy. Each retry
    * is separated by the retry delay (in ms) specified in the retry policy.
    *
-   * @param {TTaskDependencies} deps - The task dependencies
    * @param {TTaskContext} ctx - The task context
    * @returns {Promise<TTaskReturn>} A promise that resolves with the task result
    * @throws {Error} If the task execution fails after all retry attempts
    */
-  async run(deps, ctx) {
+  async run(ctx) {
     if (!this.isEnabled) {
       this.#status = "skipped";
       return null;
     }
-    const input = {
-      deps,
-      ctx
-    };
+    const contextToPass = ctx;
     for (let attempt = 0; attempt < this.#retryPolicy.maxRetries + 1; attempt++) {
       try {
         this.#status = "running";
-        const result = await this.#options.execute(input);
+        const result = await this.#options.execute(contextToPass);
         this.#status = "completed";
         return result;
       } catch (err) {
@@ -509,7 +504,7 @@ var Task = class {
           const error = err instanceof Error ? err : new Error(`Non error throw: ${String(err)}`);
           try {
             if (this.#options.errorHandler) {
-              await this.#options.errorHandler(error, input);
+              await this.#options.errorHandler(error, contextToPass);
             } else {
               console.error(`Error in task ${this.#options.id}: ${err}`);
             }
@@ -548,22 +543,12 @@ var sleep = promisify(setTimeout);
 // src/task-graph.ts
 var TaskGraph = class {
   #contextValueOrFactory = void 0;
-  #dependencies = /* @__PURE__ */ Object.create(null);
   #tasks = /* @__PURE__ */ new Map();
   #taskDependencies = new DependencyMap();
   #topologicalOrder = [];
   constructor(options) {
     if (!options) {
       return;
-    }
-    if ("dependencies" in options) {
-      if (options.dependencies === void 0) {
-        this.#dependencies = /* @__PURE__ */ Object.create(null);
-      } else if (!this.#isValidDependencies(options.dependencies)) {
-        throw new Error("Dependencies must be a non-null object with defined properties");
-      } else {
-        this.#dependencies = options.dependencies;
-      }
     }
     if ("contextValue" in options && "contextFactory" in options) {
       throw new Error("Cannot specify both contextValue and contextFactory");
@@ -590,7 +575,7 @@ var TaskGraph = class {
    * @template TTaskReturn The return type of the task.
    * @param options The configuration options for the task:
    * @param options.id A unique identifier for the task.
-   * @param options.execute A function that performs the task's operation. It receives an object with `deps` (dependencies) and `ctx` (context) properties.
+   * @param options.execute A function that performs the task's operation. It receives an object with the `ctx` (context) property.
    * @param options.dependencies An optional array of task IDs that this task depends on. If not provided, the task will be executed immediately on start.
    * @param options.retryPolicy An optional retry policy for the task, specifying maxRetries and retryDelayMs. Defaults to no retries.
    * @param options.errorHandler An optional function to handle errors that occur during task execution. Defaults to `console.error`.
@@ -602,6 +587,9 @@ var TaskGraph = class {
    */
   addTask(options) {
     const taskId = options.id;
+    if (options.id === "initial") {
+      throw new Error(`Task with id '${options.id}' cannot be created. 'initial' is a reserved keyword.`);
+    }
     if (this.#tasks.has(taskId)) {
       throw new Error(`Task with id ${taskId} already exists`);
     }
@@ -641,14 +629,7 @@ var TaskGraph = class {
       throw new Error("onTasksCompleted must be a function (sync or async).");
     }
     this.#topologicalSort();
-    return new TaskGraphRunner(
-      this.#dependencies,
-      this.#contextValueOrFactory,
-      this.#topologicalOrder,
-      this.#tasks,
-      this.#taskDependencies,
-      onTasksCompleted
-    );
+    return new TaskGraphRunner(this.#contextValueOrFactory, this.#topologicalOrder, this.#tasks, this.#taskDependencies, onTasksCompleted);
   }
   /**
    * Returns the number of tasks in the graph.
@@ -684,22 +665,16 @@ var TaskGraph = class {
     visited.clear();
     temp.clear();
   }
-  // validate the dependencies object
-  #isValidDependencies(deps) {
-    return typeof deps === "object" && deps !== null && !Array.isArray(deps) && Object.entries(deps).every(([key, value]) => typeof key === "string" && value !== void 0);
-  }
 };
 var TaskGraphRunner = class {
   #context = new Context();
-  #dependencies;
   #contextValueOrFactory;
   #topologicalOrder;
   #tasks;
   #taskDependencies;
   #onTasksCompleted;
   #errors = [];
-  constructor(dependencies, contextValueOrFactory, topologicalOrder, tasks, taskDependencies, onTasksCompleted) {
-    this.#dependencies = dependencies;
+  constructor(contextValueOrFactory, topologicalOrder, tasks, taskDependencies, onTasksCompleted) {
     this.#contextValueOrFactory = contextValueOrFactory;
     this.#topologicalOrder = topologicalOrder;
     this.#tasks = tasks;
@@ -712,7 +687,7 @@ var TaskGraphRunner = class {
     }
     let value;
     if (this.#contextValueOrFactory) {
-      value = typeof this.#contextValueOrFactory === "function" ? await this.#contextValueOrFactory(this.#dependencies) : this.#contextValueOrFactory;
+      value = typeof this.#contextValueOrFactory === "function" ? await this.#contextValueOrFactory() : this.#contextValueOrFactory;
       this.#context.reset(value);
     }
     const completed = /* @__PURE__ */ new Set();
@@ -732,7 +707,7 @@ var TaskGraphRunner = class {
         throw new Error(`Task ${taskId} not found`);
       }
       try {
-        const result = await task.run(this.#dependencies, this.#context.value);
+        const result = await task.run(this.#context.value);
         await this.#context.update({ [taskId]: result });
         completed.add(taskId);
       } catch (err) {
@@ -768,11 +743,7 @@ var TaskGraphRunner = class {
       }
     }
     if (this.#onTasksCompleted) {
-      await this.#onTasksCompleted(
-        this.#context.value,
-        this.#dependencies,
-        this.#errors.length > 0 ? this.#errors : null
-      );
+      await this.#onTasksCompleted(this.#context.value, this.#errors.length > 0 ? this.#errors : null);
     }
     return this.#context.value;
   }

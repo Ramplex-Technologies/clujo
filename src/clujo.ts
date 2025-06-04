@@ -38,7 +38,6 @@ import type { TaskGraphRunner } from "./task-graph";
 /**
  * Represents a Clujo instance, which is a cron job that executes a task graph.
  *
- * @template TTaskDependencies - Type of the dependencies each task will receive
  * @template TTaskContext - Type of the context each task will receive
 
  * @param input The input to the Clujo constructor.
@@ -67,14 +66,13 @@ import type { TaskGraphRunner } from "./task-graph";
  * });
  */
 export class Clujo<
-    TTaskDependencies extends Record<string, unknown> = Record<string, unknown>,
     TTaskContext extends Record<string, unknown> & {
         initial: unknown;
     } = Record<string, unknown> & { initial: unknown },
 > {
     readonly #id: string;
     readonly #cron: Cron;
-    readonly #taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
+    readonly #taskGraphRunner: TaskGraphRunner<TTaskContext["initial"], TTaskContext>;
     readonly #redis?: { client: Redis; lockOptions?: LockOptions };
     readonly #enabled: boolean;
     readonly #logger?: ClujoLogger;
@@ -92,7 +90,7 @@ export class Clujo<
         logger,
     }: {
         id: string;
-        taskGraphRunner: TaskGraphRunner<TTaskDependencies, TTaskContext["initial"], TTaskContext>;
+        taskGraphRunner: TaskGraphRunner<TTaskContext["initial"], TTaskContext>;
         cron: ({ pattern: string | Date } | { patterns: (string | Date)[] }) & { options?: CronOptions };
         enabled?: boolean;
         runOnStartup?: boolean;

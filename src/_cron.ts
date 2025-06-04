@@ -66,7 +66,7 @@ export class Cron {
         };
         this.#jobs = Array.isArray(this.#cronExpression)
             ? this.#cronExpression.map((expression) => new Croner(expression, this.#cronOptions, wrapHandler))
-            : [new Croner(this.#cronExpression, this.#cronOptions, handler)];
+            : [new Croner(this.#cronExpression, this.#cronOptions, wrapHandler)];
     }
 
     /**
@@ -89,9 +89,8 @@ export class Cron {
                     if (Date.now() - startTime > timeout) {
                         for (const job of this.#jobs) {
                             job.stop();
-                            this.#jobs = null;
                         }
-
+                        this.#jobs = null;
                         resolve();
                         return;
                     }

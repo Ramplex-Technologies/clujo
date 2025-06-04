@@ -54,7 +54,7 @@ var Cron = class {
         this.#isRunning = false;
       }
     };
-    this.#jobs = Array.isArray(this.#cronExpression) ? this.#cronExpression.map((expression) => new import_croner.Cron(expression, this.#cronOptions, wrapHandler)) : [new import_croner.Cron(this.#cronExpression, this.#cronOptions, handler)];
+    this.#jobs = Array.isArray(this.#cronExpression) ? this.#cronExpression.map((expression) => new import_croner.Cron(expression, this.#cronOptions, wrapHandler)) : [new import_croner.Cron(this.#cronExpression, this.#cronOptions, wrapHandler)];
   }
   /**
    * Stops the cron job. If the job is currently running, it will wait for the job to finish before stopping it.
@@ -75,8 +75,8 @@ var Cron = class {
           if (Date.now() - startTime > timeout) {
             for (const job of this.#jobs) {
               job.stop();
-              this.#jobs = null;
             }
+            this.#jobs = null;
             resolve();
             return;
           }
