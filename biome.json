@@ -1,33 +1,100 @@
 {
-    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-    "organizeImports": {
-        "enabled": true
-    },
-    "linter": {
-        "enabled": true,
-        "rules": {
-            "recommended": true,
-            "style": {
-                "noUnusedTemplateLiteral": {
-                    "level": "warn",
-                    "fix": "safe"
-                },
-                "useBlockStatements": {
-                    "level": "error",
-                    "fix": "safe"
-                }
-            }
-        }
-    },
-    "formatter": {
-        "enabled": true,
-        "attributePosition": "auto",
-        "formatWithErrors": false,
-        "indentStyle": "space",
-        "indentWidth": 4,
-        "lineWidth": 120,
-        "lineEnding": "lf",
-        "include": ["**/*.ts", "**/*.test.ts"],
-        "ignore": ["node_modules/*", "dist/*", "tsconfig.json"]
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [
+              ":URL:",
+              ":BLANK_LINE:",
+              ":NODE:",
+              ":BLANK_LINE:",
+              ":PACKAGE:",
+              ":BLANK_LINE:",
+              ":PATH:"
+            ]
+          }
+        },
+        "useSortedAttributes": "on"
+      }
     }
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/dist/**",
+      "!**/.next/**",
+      "!**/node_modules/**",
+      "!**/.turbo/**",
+      "!**/generated/prisma"
+    ],
+    "maxSize": 20000000
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "style": {
+        "useBlockStatements": {
+          "level": "error",
+          "fix": "safe"
+        },
+        "useLiteralEnumMembers": "error",
+        "noCommaOperator": "error",
+        "useNodejsImportProtocol": "error",
+        "useAsConstAssertion": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "useConst": "error",
+        "useSingleVarDeclarator": "error",
+        "noUnusedTemplateLiteral": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "useExponentiationOperator": "error",
+        "useTemplate": "error",
+        "noParameterAssign": "error",
+        "noNonNullAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "noArguments": "error",
+        "useImportType": "error",
+        "useExportType": "error",
+        "noUselessElse": "error",
+        "useShorthandFunctionType": "error"
+      },
+      "correctness": {
+        "noUnusedImports": "error"
+      }
+    },
+    "includes": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.jsonc",
+      "**/*.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "attributePosition": "auto",
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 4,
+    "lineWidth": 120,
+    "lineEnding": "lf",
+    "includes": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.jsonc",
+      "**/*.json"
+    ]
+  },
+  "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    }
+  }
 }

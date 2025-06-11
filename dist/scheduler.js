@@ -24,7 +24,7 @@ __export(scheduler_exports, {
 });
 module.exports = __toCommonJS(scheduler_exports);
 var Scheduler = class {
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: want any here
   #jobs = [];
   /**
    * Adds a Clujo job to the scheduler.
@@ -32,7 +32,7 @@ var Scheduler = class {
    * @param input.job - The Clujo job to be added.
    * @param input.completionHandler - Optional function to invoke after the job completes.
    */
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: want any here
   addJob(job) {
     if (this.#jobs.some((addedJob) => addedJob.id === job.id)) {
       throw new Error(`Job with id ${job.id} is already added to the scheduler.`);
@@ -61,7 +61,7 @@ var Scheduler = class {
   /**
    * Returns the list of jobs added to the scheduler.
    */
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: want any here
   get jobs() {
     return this.#jobs;
   }

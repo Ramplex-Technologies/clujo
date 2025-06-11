@@ -27,7 +27,7 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import { type CronOptions, Cron as Croner } from "croner";
+import { Cron as Croner, type CronOptions } from "croner";
 
 export class Cron {
     #jobs: Croner[] | null = null;
