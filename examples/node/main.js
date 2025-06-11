@@ -1,73 +1,78 @@
 "use strict"
 
 const util = require("node:util");
-const { TaskGraph, Clujo } = require("@ramplex/clujo");
+const { Clujo } = require("@ramplex/clujo");
 
 const sleep = util.promisify(setTimeout);
 
-const tasks = new TaskGraph({
-    contextFactory: () => 10,
-})
-    .addTask({
-        id: "task1",
-        execute: (ctx) => {
-            console.debug("Task 1 executing");
-            console.debug("Task 1", ctx);
-            console.debug("Task 1 executed");
-            return "Task 1 result";
-        },
-        dependencies: [],
-    })
-    .addTask({
-        id: "task2",
-        execute: (ctx) => {
-            console.debug("Task 2 executing");
-            console.log("Task 2", ctx);
-            console.debug("Task 2 executed");
-            return "Task 2 result";
-        },
-        dependencies: [],
-    })
-    .addTask({
-        id: "task3",
-        execute: (ctx) => {
-            console.debug("Task 3 executing");
-            console.log("Task 3", ctx);
-            console.debug("Task 3 executed");
-            return "Task 3 result";
-        },
-        dependencies: ["task2"],
-    })
-    .addTask({
-        id: "task4",
-        execute: (ctx) => {
-            console.debug("Task 4 executing");
-            console.log("Task 4", ctx);
-            console.debug("Task 4 executed");
-            return "Task 4 result";
-        },
-        dependencies: ["task1"],
-    })
-    .build({
-        onTasksCompleted: (ctx) => {
-            console.log("All tasks completed callback", ctx);
-        },
-    });
+// Example 1: Simple counter
+let counter = 0;
+const counterRunner = {
+    trigger: async () => {
+        counter++;
+        console.log(`Counter is now: ${counter}`);
+        return { count: counter, timestamp: new Date() };
+    }
+};
 
-const clujo = new Clujo({
-    id: "test",
+// Example 2: Simulated data processing
+const dataProcessor = {
+    trigger: async () => {
+        console.log("Starting data processing...");
+        
+        // Simulate fetching data
+        await sleep(100);
+        const data = { users: 100, orders: 250 };
+        console.log("Data fetched:", data);
+        
+        // Simulate processing
+        await sleep(100);
+        const processed = { 
+            ...data, 
+            processed: true, 
+            timestamp: new Date() 
+        };
+        console.log("Data processed:", processed);
+        
+        return processed;
+    }
+};
+
+// Create Clujo instances
+const counterClujo = new Clujo({
+    id: "counter-job",
     cron: {
-        // every 10 seconds cron pattern
+        // every 10 seconds
         pattern: "*/10 * * * * *",
     },
-    taskGraphRunner: tasks,
+    runner: counterRunner,
+    runOnStartup: true,
+});
+
+const processorClujo = new Clujo({
+    id: "processor-job",
+    cron: {
+        // every 30 seconds
+        pattern: "*/30 * * * * *",
+    },
+    runner: dataProcessor,
     runOnStartup: false,
 });
 
-// Immediate trigger
-clujo.trigger().then((value) => {
-    console.log("Trigger result", value);
+// Start the jobs
+counterClujo.start();
+processorClujo.start();
+
+// Manual trigger example
+processorClujo.trigger().then((value) => {
+    console.log("Manual trigger result:", value);
 });
 
-// start cron
-clujo.start();
+// Stop after 2 minutes
+setTimeout(async () => {
+    console.log("Stopping all jobs...");
+    await counterClujo.stop();
+    await processorClujo.stop();
+    console.log("All jobs stopped.");
+    process.exit(0);
+}, 120000);

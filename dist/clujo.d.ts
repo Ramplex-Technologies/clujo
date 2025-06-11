@@ -1,33 +1,29 @@
 import { CronOptions } from 'croner';
 import { Redis } from 'ioredis';
 import { LockOptions } from 'redis-semaphore';
-import { TaskGraphRunner } from './task-graph.js';
-import './_dependency-map.js';
-import './_task.js';
-import './error.js';
 
 /**
- * Represents a Clujo instance, which is a cron job that executes a task graph.
+ * Represents a Clujo instance, which is a cron job that executes a runner with a trigger function.
  *
- * @template TTaskContext - Type of the context each task will receive
+ * @template T - Type of the value returned by the runner's trigger function
 
  * @param input The input to the Clujo constructor.
  * @param input.id The unique identifier for the Clujo instance.
- * @param input.taskGraphRunner The task graph runner to use for executing the task graph.
+ * @param input.runner The runner object with a trigger function to execute. Can be any object that implements { trigger: () => T | Promise<T> }
  * @param input.cron The cron schedule for the Clujo instance.
- * @param input.cron.pattern The cron pattern to use for scheduling the task graph. If a Date object is provided, the task graph will execute once at the specified time.
+ * @param input.cron.pattern The cron pattern to use for scheduling. If a Date object is provided, the runner will execute once at the specified time.
  * @param input.cron.options Optional options to use when creating the cron job.
  * @param input.redis The redis settings for distributed locking
  * @param input.redis.client The IORedis client instance
  * @param input.redis.lockOptions The redis-semaphore lock options for lock acquisition
- * @param input.runOnStartup If `true`, executes the task graph immediately on start, independent of the cron schedule
+ * @param input.runOnStartup If `true`, executes the runner immediately on start, independent of the cron schedule
  *
- * @throw An error if the Clujo ID, task graph runner, or cron pattern is not provided.
+ * @throw An error if the Clujo ID, runner, or cron pattern is not provided.
  *
  * @example
  * const clujo = new Clujo({
  *   id: 'my-clujo-instance',
- *   taskGraphRunner: myTaskGraphRunner,
+ *   runner: myWorkflowRunner,
  *   cron: {
  *     pattern: '0 0 * * *', // Run daily at midnight
  *     options: { timezone: 'America/New_York' }
@@ -36,15 +32,11 @@ import './error.js';
  *   redis: { client: myRedisClient }
  * });
  */
-declare class Clujo<TTaskContext extends Record<string, unknown> & {
-    initial: unknown;
-} = Record<string, unknown> & {
-    initial: unknown;
-}> {
+declare class Clujo<T> {
     #private;
-    constructor({ id, taskGraphRunner, cron, enabled, runOnStartup, redis, logger, }: {
+    constructor({ id, runner, cron, enabled, runOnStartup, redis, logger, }: {
         id: string;
-        taskGraphRunner: TaskGraphRunner<TTaskContext["initial"], TTaskContext>;
+        runner: IRunner<T>;
         cron: ({
             pattern: string | Date;
         } | {
@@ -58,7 +50,7 @@ declare class Clujo<TTaskContext extends Record<string, unknown> & {
             client: Redis;
             lockOptions?: LockOptions;
         };
-        logger?: ClujoLogger;
+        logger?: IClujoLogger;
     });
     get id(): string;
     /**
@@ -76,17 +68,20 @@ declare class Clujo<TTaskContext extends Record<string, unknown> & {
      */
     stop(timeout?: number): Promise<void>;
     /**
-     * Trigger an execution of the task graph immediately, independent of the cron schedule.
-     * In the event the cron is running, the task graph will still execute.
+     * Trigger an execution of the runner immediately, independent of the cron schedule.
+     * In the event the cron is running, the runner will still execute.
      *
-     * @returns The final context of the task graph.
+     * @returns The final context returned by the runner.
      */
-    trigger(): Promise<TTaskContext>;
+    trigger(): Promise<T>;
 }
-interface ClujoLogger {
+interface IClujoLogger {
     log?: (message: string) => void;
     debug?: (message: string) => void;
     error?: (message: string) => void;
 }
+interface IRunner<T> {
+    trigger: () => T | Promise<T>;
+}
 
-export { Clujo };
+export { Clujo, type IClujoLogger, type IRunner };

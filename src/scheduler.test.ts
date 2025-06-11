@@ -34,7 +34,7 @@ describe("Scheduler Class", () => {
             id: "job1",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-        } as unknown as Clujo<Record<string, unknown>, { initial: unknown }>;
+        } as unknown as Clujo;
 
         scheduler.addJob(mockJob);
 
@@ -48,7 +48,7 @@ describe("Scheduler Class", () => {
             id: "job1",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-        } as unknown as Clujo<Record<string, unknown>, { initial: unknown }>;
+        } as unknown as Clujo;
 
         scheduler.addJob(mockJob);
 

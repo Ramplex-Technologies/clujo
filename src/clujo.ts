@@ -33,30 +33,29 @@ import type { CronOptions } from "croner";
 import type { Redis } from "ioredis";
 import { type LockOptions, Mutex } from "redis-semaphore";
 import { Cron } from "./_cron";
-import type { TaskGraphRunner } from "./task-graph";
 
 /**
- * Represents a Clujo instance, which is a cron job that executes a task graph.
+ * Represents a Clujo instance, which is a cron job that executes a runner with a trigger function.
  *
- * @template TTaskContext - Type of the context each task will receive
+ * @template T - Type of the value returned by the runner's trigger function
 
  * @param input The input to the Clujo constructor.
  * @param input.id The unique identifier for the Clujo instance.
- * @param input.taskGraphRunner The task graph runner to use for executing the task graph.
+ * @param input.runner The runner object with a trigger function to execute. Can be any object that implements { trigger: () => T | Promise<T> }
  * @param input.cron The cron schedule for the Clujo instance.
- * @param input.cron.pattern The cron pattern to use for scheduling the task graph. If a Date object is provided, the task graph will execute once at the specified time.
+ * @param input.cron.pattern The cron pattern to use for scheduling. If a Date object is provided, the runner will execute once at the specified time.
  * @param input.cron.options Optional options to use when creating the cron job.
  * @param input.redis The redis settings for distributed locking
  * @param input.redis.client The IORedis client instance
  * @param input.redis.lockOptions The redis-semaphore lock options for lock acquisition
- * @param input.runOnStartup If `true`, executes the task graph immediately on start, independent of the cron schedule
+ * @param input.runOnStartup If `true`, executes the runner immediately on start, independent of the cron schedule
  *
- * @throw An error if the Clujo ID, task graph runner, or cron pattern is not provided.
+ * @throw An error if the Clujo ID, runner, or cron pattern is not provided.
  *
  * @example
  * const clujo = new Clujo({
  *   id: 'my-clujo-instance',
- *   taskGraphRunner: myTaskGraphRunner,
+ *   runner: myWorkflowRunner,
  *   cron: {
  *     pattern: '0 0 * * *', // Run daily at midnight
  *     options: { timezone: 'America/New_York' }
@@ -65,24 +64,20 @@ import type { TaskGraphRunner } from "./task-graph";
  *   redis: { client: myRedisClient }
  * });
  */
-export class Clujo<
-    TTaskContext extends Record<string, unknown> & {
-        initial: unknown;
-    } = Record<string, unknown> & { initial: unknown },
-> {
+export class Clujo<T> {
     readonly #id: string;
     readonly #cron: Cron;
-    readonly #taskGraphRunner: TaskGraphRunner<TTaskContext["initial"], TTaskContext>;
+    readonly #runner: IRunner<T>;
     readonly #redis?: { client: Redis; lockOptions?: LockOptions };
     readonly #enabled: boolean;
-    readonly #logger?: ClujoLogger;
+    readonly #logger?: IClujoLogger;
 
     #hasStarted = false;
     #runOnStartup = false;
 
     constructor({
         id,
-        taskGraphRunner,
+        runner,
         cron,
         enabled,
         runOnStartup,
@@ -90,19 +85,24 @@ export class Clujo<
         logger,
     }: {
         id: string;
-        taskGraphRunner: TaskGraphRunner<TTaskContext["initial"], TTaskContext>;
-        cron: ({ pattern: string | Date } | { patterns: (string | Date)[] }) & { options?: CronOptions };
+        runner: IRunner<T>;
+        cron: ({ pattern: string | Date } | { patterns: (string | Date)[] }) & {
+            options?: CronOptions;
+        };
         enabled?: boolean;
         runOnStartup?: boolean;
         redis?: { client: Redis; lockOptions?: LockOptions };
-        logger?: ClujoLogger;
+        logger?: IClujoLogger;
     }) {
         logger?.debug?.(`Initializing Clujo instance with ID: ${id}`);
         if (!id) {
             throw new Error("Clujo ID is required.");
         }
-        if (!taskGraphRunner) {
-            throw new Error("taskGraphRunner is required");
+        if (!runner) {
+            throw new Error("runner is required");
+        }
+        if (!runner.trigger || typeof runner.trigger !== "function") {
+            throw new Error("runner must have a trigger function");
         }
         if (!("pattern" in cron || "patterns" in cron)) {
             throw new Error("Either cron.pattern or cron.patterns is required.");
@@ -132,7 +132,7 @@ export class Clujo<
             logger?.debug?.(`Clujo ${id} configured to run on startup`);
         }
         this.#id = id;
-        this.#taskGraphRunner = taskGraphRunner;
+        this.#runner = runner;
         this.#cron = new Cron("pattern" in cron ? cron.pattern : cron.patterns, cron.options);
         this.#runOnStartup = Boolean(runOnStartup);
         // default to enabled
@@ -165,23 +165,23 @@ export class Clujo<
                     return;
                 }
                 if (!this.#redis) {
-                    this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
-                    await this.#taskGraphRunner.trigger();
-                    this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+                    this.#logger?.debug?.(`Executing runner for Clujo ${this.#id} without distributed lock`);
+                    await this.#runner.trigger();
+                    this.#logger?.log?.(`Successfully completed runner execution for Clujo ${this.#id}`);
                 } else {
                     this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
                     await using lock = await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions);
                     if (lock) {
-                        this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
-                        await this.#taskGraphRunner.trigger();
-                        this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+                        this.#logger?.debug?.(`Executing runner for Clujo ${this.#id} with distributed lock`);
+                        await this.#runner.trigger();
+                        this.#logger?.log?.(`Successfully completed runner execution for Clujo ${this.#id}`);
                     } else {
                         this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
                     }
                 }
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
-                this.#logger?.error?.(`Failed to execute task graph for Clujo ${this.#id}: ${message}`);
+                this.#logger?.error?.(`Failed to execute runner for Clujo ${this.#id}: ${message}`);
             }
         };
         this.#cron.start(handler);
@@ -219,16 +219,16 @@ export class Clujo<
     }
 
     /**
-     * Trigger an execution of the task graph immediately, independent of the cron schedule.
-     * In the event the cron is running, the task graph will still execute.
+     * Trigger an execution of the runner immediately, independent of the cron schedule.
+     * In the event the cron is running, the runner will still execute.
      *
-     * @returns The final context of the task graph.
+     * @returns The final context returned by the runner.
      */
-    async trigger(): Promise<TTaskContext> {
-        // we do not trigger via the cron here so that we can make use of the result of the task graph
+    async trigger(): Promise<T> {
+        // we do not trigger via the cron here so that we can make use of the result of the runner
         this.#logger?.debug?.(`Manual trigger initiated for Clujo ${this.#id}`);
         try {
-            const result = await this.#taskGraphRunner.trigger();
+            const result = await this.#runner.trigger();
             this.#logger?.log?.(`Manual trigger completed successfully for Clujo ${this.#id}`);
             return result;
         } catch (error) {
@@ -290,8 +290,12 @@ interface AsyncDisposableMutex extends AsyncDisposable {
     mutex: Mutex;
 }
 
-interface ClujoLogger {
+export interface IClujoLogger {
     log?: (message: string) => void;
     debug?: (message: string) => void;
     error?: (message: string) => void;
+}
+
+export interface IRunner<T> {
+    trigger: () => T | Promise<T>;
 }

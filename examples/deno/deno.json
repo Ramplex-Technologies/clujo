@@ -3,6 +3,6 @@
         "dev": "deno run --watch main.ts"
     },
     "imports": {
-        "@ramplex/clujo": "jsr:@ramplex/clujo@^3.0.0"
+        "@ramplex/clujo": "jsr:@ramplex/clujo@^5.0.0"
     }
 }

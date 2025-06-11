@@ -1,26 +1,21 @@
 {
   "name": "@ramplex/clujo",
   "author": "Rami Pellumbi",
-  "description": "Schedule interdependent tasks on a cron-like schedule with parallel task execution. Built in distributed locking to prevent overlapping executions in a clustered environment.",
+  "description": "Schedule functions on a cron-like schedule. Built in distributed locking to prevent overlapping executions in a clustered environment.",
   "keywords": [
-    "task-scheduler",
     "cron",
-    "workflow-orchestration",
     "job-automation",
     "distributed-locking",
-    "parallel-execution",
     "concurrent-tasks",
     "dependency-management",
     "typescript",
     "redis",
     "node",
     "javascript",
-    "topological-sort",
     "single-execution",
     "cluster-safe",
     "sync-jobs",
-    "async-jobs",
-    "task-dependencies"
+    "async-jobs"
   ],
   "repository": {
     "type": "git",
@@ -28,7 +23,7 @@
   },
   "license": "MIT",
   "private": false,
-  "version": "4.0.0",
+  "version": "5.0.0",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
