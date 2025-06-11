@@ -67,7 +67,7 @@ describe("Clujo", () => {
     describe("start method", () => {
         test("throws when already started", () => {
             const runner = {
-                trigger: () => Promise.resolve("result")
+                trigger: () => Promise.resolve("result"),
             };
 
             const clujo = new Clujo({
@@ -85,7 +85,7 @@ describe("Clujo", () => {
     describe("stop method", () => {
         test("throws when not started", async () => {
             const runner = {
-                trigger: () => Promise.resolve("result")
+                trigger: () => Promise.resolve("result"),
             };
 
             const clujo = new Clujo({
@@ -99,7 +99,7 @@ describe("Clujo", () => {
 
         test("stops successfully", async () => {
             const runner = {
-                trigger: () => Promise.resolve({ node1: "result" })
+                trigger: () => Promise.resolve({ node1: "result" }),
             };
 
             const clujo = new Clujo({
@@ -116,11 +116,12 @@ describe("Clujo", () => {
     describe("trigger method", () => {
         test("executes runner and returns result", async () => {
             const runner = {
-                trigger: () => Promise.resolve({
-                    initial: undefined,
-                    node1: "result1",
-                    node2: "result1-result2"
-                })
+                trigger: () =>
+                    Promise.resolve({
+                        initial: undefined,
+                        node1: "result1",
+                        node2: "result1-result2",
+                    }),
             };
 
             const clujo = new Clujo({
@@ -145,7 +146,7 @@ describe("Clujo", () => {
                 trigger: async () => {
                     executionCount++;
                     return { node1: "result" };
-                }
+                },
             };
 
             const clujo = new Clujo({
@@ -169,7 +170,7 @@ describe("Clujo", () => {
                 trigger: async () => {
                     executionCount++;
                     return { node1: "result" };
-                }
+                },
             };
 
             const logs: string[] = [];
@@ -199,7 +200,7 @@ describe("Clujo", () => {
 
         test("validates enabled flag type", () => {
             const runner = {
-                trigger: () => Promise.resolve({ node1: "result" })
+                trigger: () => Promise.resolve({ node1: "result" }),
             };
 
             expect(
@@ -220,7 +221,7 @@ describe("Clujo", () => {
                 trigger: async () => {
                     executionCount++;
                     return { node1: "result" };
-                }
+                },
             };
 
             const clujo = new Clujo({
@@ -236,7 +237,7 @@ describe("Clujo", () => {
 
         test("logs warning when attempting scheduled run while disabled", async () => {
             const runner = {
-                trigger: () => Promise.resolve({ node1: "result" })
+                trigger: () => Promise.resolve({ node1: "result" }),
             };
 
             const logs: string[] = [];
