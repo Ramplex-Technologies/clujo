@@ -136,7 +136,7 @@ var Cron = class {
 var Clujo = class {
   #id;
   #cron;
-  #taskGraphRunner;
+  #runner;
   #redis;
   #enabled;
   #logger;
@@ -144,7 +144,7 @@ var Clujo = class {
   #runOnStartup = false;
   constructor({
     id,
-    taskGraphRunner,
+    runner,
     cron,
     enabled,
     runOnStartup,
@@ -155,8 +155,11 @@ var Clujo = class {
     if (!id) {
       throw new Error("Clujo ID is required.");
     }
-    if (!taskGraphRunner) {
-      throw new Error("taskGraphRunner is required");
+    if (!runner) {
+      throw new Error("runner is required");
+    }
+    if (!runner.trigger || typeof runner.trigger !== "function") {
+      throw new Error("runner must have a trigger function");
     }
     if (!("pattern" in cron || "patterns" in cron)) {
       throw new Error("Either cron.pattern or cron.patterns is required.");
@@ -186,7 +189,7 @@ var Clujo = class {
       logger?.debug?.(`Clujo ${id} configured to run on startup`);
     }
     this.#id = id;
-    this.#taskGraphRunner = taskGraphRunner;
+    this.#runner = runner;
     this.#cron = new Cron("pattern" in cron ? cron.pattern : cron.patterns, cron.options);
     this.#runOnStartup = Boolean(runOnStartup);
     this.#enabled = enabled ?? true;
@@ -215,18 +218,18 @@ var Clujo = class {
           return;
         }
         if (!this.#redis) {
-          this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} without distributed lock`);
-          await this.#taskGraphRunner.trigger();
-          this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+          this.#logger?.debug?.(`Executing runner for Clujo ${this.#id} without distributed lock`);
+          await this.#runner.trigger();
+          this.#logger?.log?.(`Successfully completed runner execution for Clujo ${this.#id}`);
         } else {
           var _stack = [];
           try {
             this.#logger?.debug?.(`Attempting to acquire distributed lock for Clujo ${this.#id}`);
             const lock = __using(_stack, await this.#tryAcquire(this.#redis.client, this.#redis.lockOptions), true);
             if (lock) {
-              this.#logger?.debug?.(`Executing task graph for Clujo ${this.#id} with distributed lock`);
-              await this.#taskGraphRunner.trigger();
-              this.#logger?.log?.(`Successfully completed task graph execution for Clujo ${this.#id}`);
+              this.#logger?.debug?.(`Executing runner for Clujo ${this.#id} with distributed lock`);
+              await this.#runner.trigger();
+              this.#logger?.log?.(`Successfully completed runner execution for Clujo ${this.#id}`);
             } else {
               this.#logger?.log?.(`Skipping execution - Could not acquire lock for Clujo ${this.#id}`);
             }
@@ -239,7 +242,7 @@ var Clujo = class {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.#logger?.error?.(`Failed to execute task graph for Clujo ${this.#id}: ${message}`);
+        this.#logger?.error?.(`Failed to execute runner for Clujo ${this.#id}: ${message}`);
       }
     };
     this.#cron.start(handler);
@@ -272,15 +275,15 @@ var Clujo = class {
     }
   }
   /**
-   * Trigger an execution of the task graph immediately, independent of the cron schedule.
-   * In the event the cron is running, the task graph will still execute.
+   * Trigger an execution of the runner immediately, independent of the cron schedule.
+   * In the event the cron is running, the runner will still execute.
    *
-   * @returns The final context of the task graph.
+   * @returns The final context returned by the runner.
    */
   async trigger() {
     this.#logger?.debug?.(`Manual trigger initiated for Clujo ${this.#id}`);
     try {
-      const result = await this.#taskGraphRunner.trigger();
+      const result = await this.#runner.trigger();
       this.#logger?.log?.(`Manual trigger completed successfully for Clujo ${this.#id}`);
       return result;
     } catch (error) {

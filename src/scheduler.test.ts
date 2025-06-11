@@ -24,6 +24,7 @@
 -----------------------------------------------------------------------------*/
 
 import { describe, expect, test, vi } from "vitest";
+
 import type { Clujo } from "../src/clujo";
 import { Scheduler } from "../src/scheduler";
 
@@ -34,7 +35,7 @@ describe("Scheduler Class", () => {
             id: "job1",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-        } as unknown as Clujo<Record<string, unknown>, { initial: unknown }>;
+        } as unknown as Clujo;
 
         scheduler.addJob(mockJob);
 
@@ -48,7 +49,7 @@ describe("Scheduler Class", () => {
             id: "job1",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-        } as unknown as Clujo<Record<string, unknown>, { initial: unknown }>;
+        } as unknown as Clujo;
 
         scheduler.addJob(mockJob);
 
@@ -63,13 +64,13 @@ describe("Scheduler Class", () => {
             id: "job1",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+            // biome-ignore lint/suspicious/noExplicitAny: want any here
         } as any;
         const mockJob2 = {
             id: "job2",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+            // biome-ignore lint/suspicious/noExplicitAny: want any here
         } as any;
 
         scheduler.addJob(mockJob1);
@@ -87,13 +88,13 @@ describe("Scheduler Class", () => {
             id: "job1",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+            // biome-ignore lint/suspicious/noExplicitAny: want any here
         } as any;
         const mockJob2 = {
             id: "job2",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+            // biome-ignore lint/suspicious/noExplicitAny: want any here
         } as any;
 
         scheduler.addJob(mockJob1);
@@ -113,7 +114,7 @@ describe("Scheduler Class", () => {
             id: "job1",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+            // biome-ignore lint/suspicious/noExplicitAny: want any here
         } as any;
 
         scheduler.addJob(mockJob);

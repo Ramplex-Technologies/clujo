@@ -1,16 +1,14 @@
-# clujo
+# @ramplex/clujo
 
 **IMPORTANT**: clujo is now published under `@ramplex/clujo` on npm and jsr. If you are using the old `clujo` package, please update your dependencies to use `@ramplex/clujo` instead. All future versions will be published under the new package name.
 
-## 🚨 v4.0.0 Breaking Changes
+Clujo is a simple and flexible solution for running any object with a `trigger` method on a cron schedule, with built-in support for preventing overlapping executions in distributed environments.
 
-Clujo v4.0.0 introduces significant API simplifications. If you're upgrading from v3.x, please see the [Migration Guide](#migrating-from-v3x-to-v40) section.
+It would not be possible without the amazing work of the following projects:
 
-Clujo is a flexible solution for managing scheduled tasks in your distributed Node.js / Deno applications. It would not be possible without the amazing work of the following projects:
-
-- [Croner](https://github.com/Hexagon/croner/tree/master?tab=readme-ov-file): used for running task graphs on a cron schedule
+- [Croner](https://github.com/Hexagon/croner/tree/master?tab=readme-ov-file): used for cron scheduling
 - [ioredis](https://github.com/redis/ioredis) - (not a dependency, but the supported redis client) used to ensure single execution in a clustered/distributed environment
-- [redis-semaphore](https://github.com/swarthy/redis-semaphore) (only used if an `ioredis` instance is provided to start method) - used to ensure single execution in a distributed environment
+- [redis-semaphore](https://github.com/swarthy/redis-semaphore) (only used if an `ioredis` instance is provided) - used to ensure single execution in a distributed environment
 
 Coming soon: validated bun support.
 
@@ -19,42 +17,42 @@ Coming soon: validated bun support.
 - [Features](#features)
 - [Installation](#installation)
     - [npm](#npm-registry)
-    - [jsr](jsr-registry)
+    - [jsr](#jsr-registry)
 - [Quick Start](#quick-start)
-    - [Using the Task Graph](#using-the-task-graph)
+- [Core Concepts](#core-concepts)
+  - [The Runner Interface](#the-runner-interface)
+  - [Preventing Overlapping Executions](#preventing-overlapping-executions)
 - [Advanced Usage](#advanced-usage)
-  - [Understanding Dependency Execution](#understanding-dependency-execution)
-    - [Context object](#context-object)
-    - [Task execution](#task-execution)
-  - [Disabling Execution](#disabling-execution)
-    - [Disabling a Clujo](#disabling-a-clujo)
-    - [Disabling a Task](#disabling-a-task)
-  - [Visualizing Task Dependencies](#visualizing-task-dependencies)
-  - [Setting Context and Dependencies](#setting-context-and-dependencies)
+  - [Multiple Cron Patterns](#multiple-cron-patterns)
+  - [One-time Execution](#one-time-execution)
+  - [Disabling a Clujo](#disabling-a-clujo)
   - [Logging](#logging)
   - [Using Redis for Distributed Locking](#using-redis-for-distributed-locking)
-  - [Running Tasks on Startup](#running-tasks-on-startup)
-  - [Error Handling](#error-handling)
-  - [Retry Policy](#retry-policy)
+  - [Running on Startup](#running-on-startup)
+  - [Manual Triggering](#manual-triggering)
 - [Using the Scheduler](#using-the-scheduler)
   - [Adding Jobs to the Scheduler](#adding-jobs-to-the-scheduler)
   - [Starting All Jobs](#starting-all-jobs)
   - [Stopping All Jobs](#stopping-all-jobs)
-- [Migrating from v3.x to v4.0](#migrating-from-v3x-to-v40)
+- [Examples](#examples)
+  - [Simple Counter](#simple-counter)
+  - [Database Cleanup](#database-cleanup)
+  - [With Workflow](#with-workflow)
 - [Contributing](#contributing)
 - [License](#license)
 
 # Features
 
-- Clujo provides an intuitive interface for setting up cron-like schedules, making it easy to create and manage recurring tasks.
-- Clujo's task orchestration allows you to define and execute a set of interdependent tasks, running independent tasks in parallel when possible while ensuring dependent tasks wait for their prerequisites.
-- Clujo's context system allows you to pass and modify state between tasks, enabling sophisticated data flow and making it easier to build complex, stateful workflows, with type safety in mind.
-- Clujo includes a configurable retry policy, enabling your tasks to automatically recover from transient failures without manual intervention.
-- When used with Redis, Clujo provides out-of-the-box distributed locking, preventing overlapping executions in a distributed environment.
-- Clujo offers type-safe task definitions and context management.
-- With the `runOnStartup` feature, Clujo allows you to run tasks immediately when needed, in addition to their scheduled times.
-- Clujo provides a graceful way to stop scheduled tasks, ensuring that your application can shut down without leaving tasks in an inconsistent state.
-- Each task can have its own error handler, allowing for fine-grained control over how failures are managed and reported.
+- **Simple API**: Just provide any object with a `trigger` function and a cron schedule
+- **No Overlapping Executions**: Built-in protection against concurrent runs of the same job
+- **Distributed Locking**: Optional Redis integration for preventing overlaps across multiple instances
+- **Flexible Scheduling**: Support for standard cron patterns, multiple patterns, and one-time executions
+- **Type Safety**: Full TypeScript support with generic types for your trigger return values
+- **Graceful Shutdown**: Clean stop mechanism that waits for running jobs to complete
+- **Manual Triggering**: Execute jobs on-demand outside of their schedule
+- **Startup Execution**: Option to run immediately when starting
+- **Job Management**: Built-in Scheduler class for managing multiple Clujo instances
+- **Minimal Dependencies**: Focused on doing one thing well
 
 # Installation
 
@@ -93,275 +91,125 @@ pnpm dlx jsr add @ramplex/clujo
 Here's a simple example to get you started with Clujo:
 
 ```typescript
-import { TaskGraph, Clujo } from '@ramplex/clujo';
+import { Clujo } from '@ramplex/clujo';
 // or (in node.js)
-// const { TaskGraph, Clujo } = require('@ramplex/clujo');
+// const { Clujo } = require('@ramplex/clujo');
 
-// Define your tasks
-const tasks = new TaskGraph({
-  // Optional: provide initial context value
-  contextValue: { initialData: "some value" },
-})
-  .addTask({
-    id: "task1",
-    execute: async (ctx) => {
-      // Access initial context at ctx.initial
-      console.log("Initial data:", ctx.initial?.initialData);
-      return "Task 1 result";
-    },
-  })
-  .addTask({
-    id: "task2",
-    execute: async (ctx) => {
-      // Access task1's result directly from context
-      console.log("Task 1 result:", ctx.task1);
-      return "Task 2 result";
-    },
-    // will only execute after task 1 completes
-    dependencies: ["task1"],
-  })
-  .addTask({
-    id: "task3",
-    execute: async (ctx) => {
-      return "Task 3 result";
-    },
-    // since task3 has no dependencies, it will run in parallel with task1 at the start of execution
-  })
-  .build({
-      // Optional: provide a (sync or async) function to run when the task graph completes execution
-      // that takes in the completed context object and errors (list of TaskError for each task that failed if any errors occurred, otherwise null)
-      onTasksCompleted: (ctx, errors) => {
-        if (errors) {
-          console.error("Some tasks failed:", errors);
-        }
-        console.log("Final context:", ctx);
-      },
-  });
+// Create any object with a trigger function
+const myRunner = {
+  trigger: async () => {
+    console.log("Running my scheduled task!");
+    // Do your work here
+    const result = await performSomeWork();
+    return result;
+  }
+};
 
 // Create a Clujo instance
 const clujo = new Clujo({
-  id: "myClujoJob",
+  id: "my-scheduled-job",
   cron: {
-    // You can provide either a single pattern
-    pattern: "*/5 * * * * *", // Every 5 seconds
-    // OR multiple patterns
-    patterns: [
-      "*/5 * * * * *",    // Every 5 seconds
-      "0 */2 * * *",      // Every 2 hours
-      new Date("2024-12-25T00:00:00") // One-time execution on Christmas
-    ],
-    // Optional: provide options for the Cron run (Croner `CronOptions`)
+    pattern: "*/5 * * * *", // Every 5 minutes
     options: { tz: "America/New_York" }
   },
-  taskGraphRunner: tasks,
-  // Optional: provide an ioredis client for distributed locking
-  // In a clustered / multi-instance environment, this will prevent overlapping executions
-  redis: { client: new Redis() },
-  // Optional: run the job immediately on startup, independent of the schedules
+  runner: myRunner,
+  // Optional: prevent overlapping executions in distributed environments
+  redis: { client: redisClient },
+  // Optional: run immediately on startup
   runOnStartup: true,
 });
 
 // Start the job
 clujo.start();
 
-// Trigger the job manually to get a complete context object
-const completedContext = await clujo.trigger();
+// Manually trigger if needed
+const result = await clujo.trigger();
 
-// Gracefully stop the job by waiting until the current execution completes
-// Will force stop after timeout milliseconds
-await clujo.stop(timeoutMs);
+// Gracefully stop
+await clujo.stop();
 ```
 
-In the event a Javascript `Date` object is provided in the patterns array or as a singular pattern, the task graph
-will be executed precisely once at the specific date/time specified for that pattern. Time is in ISO 8601 local time.
-When using multiple patterns, if executions overlap, Clujo will prevent concurrent executions.
+# Core Concepts
 
-## Using the Task Graph
+## The Runner Interface
 
-There is no need to use `Clujo` to execute the `TaskGraphRunner` that is instantiated when invoking `TaskGraph.build`.
-The graph can be invoked as desired via the `trigger` function, i.e.,
+Clujo works with any object that implements a simple interface:
 
 ```typescript
-const completedContext = await tasks.trigger()
+interface IRunner<T> {
+  trigger: () => T | Promise<T>;
+}
 ```
 
-If provided, the `onTaskCompleted` will invoke before the promise resolves.
+This means you can schedule anything - from simple functions wrapped in an object to complex workflow systems, database maintenance tasks, or API polling jobs.
+
+## Preventing Overlapping Executions
+
+By default, Clujo prevents overlapping executions on a single instance. If a job is still running when the next scheduled execution arrives, the new execution is skipped. This behavior is automatic and requires no configuration.
+
+For distributed environments with multiple instances, you can provide a Redis client to ensure only one instance executes the job at any given time across your entire system.
 
 # Advanced Usage
 
-## Understanding Dependency Execution
+## Multiple Cron Patterns
 
-### Context object
-
-The context object contains the appropriate context for the task.
-
- - All tasks receive a context object as their only parameter
- - The initial context (if provided) is available at `ctx.initial`
- - If task `i` depends on tasks `j_1,...,j_n`, then it can be guaranteed the context object will have the result of tasks `j_1,...,j_n` under the keys `j_1,...,j_n`. The value at these keys is the return of task `j_i`, `i = 1,...,n`.
- - The context object is read-only. Modifying the context object directly will not be reflected in the context object and will result in a runtime error (in strict mode).
- - If a task has no dependencies it has guaranteed access to the initial context object only (if it was set) at `ctx.initial`.
- - A task attempting to access a task result from a task it does not depend on is undefined behavior. If the task has run,
-    the value will be present in the context object, but it is not guaranteed to be present.
- - **Important**: The task ID `"initial"` is reserved and cannot be used as a task identifier.
-
-### Task execution
-
-  - case: N tasks each with no dependencies. All tasks run concurrently
-  - case: N tasks where task i depends on task `i-1`, `i=1,...,N`. All tasks run sequentially
-  - case: Fix `1 <= i != j <= N`. N tasks where task `i` depends on task `j`. `N\{i}` tasks run concurrently, task `i` runs after task `j`.
-  - case: Task `i` depends on task `j`, task `j` depends on task `i`. Cyclic dependencies will result in an error pre-execution.
-
-In the event a task execution fails, or a task is disabled, all further dependent tasks will not be executed. Other independent tasks will continue to run.
-
-More complex cases can be built from the above examples.
-
-## Disabling Execution
-
-You can disable either the whole `Clujo` or individual tasks via the `enabled` option.
-
-### Disabling a Clujo
-
-To disable a `Clujo` from executing on it's schedule, use the `enabled` option in the constructor:
+You can specify multiple cron patterns for a single job:
 
 ```typescript
 const clujo = new Clujo({
-  id: "myClujoJob",
+  id: "multi-schedule-job",
   cron: {
-    // every 3 minute at the top of the minute from 8AM to midnight
-    // every 15 minutes at the top of the minute from midnight to 8AM
-    patterns: ["*/3 8-23 * * *", "*/15 0-7 * * *"],
+    patterns: [
+      "0 9 * * *",      // Daily at 9 AM
+      "0 17 * * *",     // Daily at 5 PM
+      "0 12 * * SAT"    // Saturdays at noon
+    ]
   },
-  // built task graph
-  taskGraphRunner: tasks,
-  redis: { client: new Redis() },
-  runOnStartup: true,
-  enabled: process.env.NODE_ENV !== "development"
+  runner: myRunner
 });
 ```
 
-This will still run on the given schedule, but the handler will warn that the Clujo is disabled and skip execution.
+## One-time Execution
 
-### Disabling a Task
-
-If you do not want to disable the whole Clujo, but instead disable a task (and all tasks that depend on it), you can
-use the `enabled` option in the `TaskGraph.addTask` function. The following unit test exhibits the intended behavior.
+Schedule a job to run once at a specific date/time:
 
 ```typescript
-await t.test("trigger skips tree of disabled tasks", async () => {
-    const executionOrder: string[] = [];
-    const taskGraph = new TaskGraph()
-        .addTask({
-            id: "task1",
-            execute: () => {
-                executionOrder.push("task1");
-                return "result1";
-            },
-        })
-        .addTask({
-            id: "task2",
-            dependencies: ["task1"],
-            execute: () => {
-                executionOrder.push("task2");
-                return "result2";
-            },
-        })
-        // will skip since it is not enabled
-        .addTask({
-            id: "task3",
-            execute: () => {
-                executionOrder.push("task3");
-                return "result3";
-            },
-            enabled: false,
-        })
-        // will skip since it depends on a task that is not enabled
-        .addTask({
-            id: "task4",
-            dependencies: ["task1", "task3"],
-            execute: () => {
-                executionOrder.push("task4");
-                return "result4";
-            },
-        });
-
-    const runner = taskGraph.build();
-    const result = await runner.trigger();
-
-    assert.deepEqual(executionOrder, ["task1", "task2"]);
-    assert.deepEqual(result, {
-        initial: undefined,
-        task1: "result1",
-        task2: "result2",
-    });
+const clujo = new Clujo({
+  id: "holiday-job",
+  cron: {
+    pattern: new Date("2024-12-25T00:00:00") // Christmas midnight
+  },
+  runner: myRunner
 });
 ```
 
-## Visualizing Task Dependencies
+## Disabling a Clujo
 
-You can visualize the task graph dependency structure by using the `printTaskGraph` option on the `TaskGraphRunner`:
-
-```typescript
-taskGraphRunner.printTaskGraph();
-```
-
-This will print a visual representation of your task graph to the console. For example:
-
-```
-test Structure:
-└─ task1
-  ├─ task4
-└─ task2
-  ├─ task3
-```
-
-## Setting Context and Dependencies
+To disable a Clujo from executing on its schedule, use the `enabled` option:
 
 ```typescript
-// Using a static context value
-const tasks = new TaskGraph({
-  contextValue: { users: [], config: {} },
-})
-  .addTask({
-    id: "task1",
-    execute: (ctx) => {
-      // Access initial context at ctx.initial
-      console.log("Users:", ctx.initial?.users);
-      return "result";
-    }
-  })
-  .build();
-
-// Using a (sync or async) context factory
-const tasks = new TaskGraph({
-  contextFactory: async () => {
-    const users = await fetchUsers();
-    return { users };
+const clujo = new Clujo({
+  id: "conditional-job",
+  cron: {
+    pattern: "*/5 * * * *"
   },
-})
-  .addTask({
-    id: "task1",
-    execute: (ctx) => {
-      // Access initial context at ctx.initial
-      console.log("Users:", ctx.initial?.users);
-      return "result";
-    }
-  })
-  .build();
+  runner: myRunner,
+  enabled: process.env.NODE_ENV === "production"
+});
 ```
 
-The context and dependencies are type-safe, ensuring you can only access properties that actually exist.
-Tasks can access their dependencies' results through the context object, and all tasks have access to the initial context (when set) under `ctx.initial`.
+When disabled, the Clujo will still exist but will skip execution when triggered.
 
 ## Logging
 
 Clujo supports custom logging through a logger interface. The logger can be provided to the Clujo instance to capture various events and errors during execution. Each log level is optional, and you can choose to implement only the methods you need.
 
 ```typescript
-// Define a logger that implements the ClujoLogger interface
-interface ClujoLogger {
-    debug?: (message: string): void;
-    log?: (message: string): void;
-    error?: (message: string): void;
+// Define a logger that implements the IClujoLogger interface
+interface IClujoLogger {
+    debug?: (message: string) => void;
+    log?: (message: string) => void;
+    error?: (message: string) => void;
 }
 
 // Example implementation using console
@@ -381,7 +229,7 @@ const customLogger = {
 // Provide the logger to Clujo
 const clujo = new Clujo({
     id: "myClujoJob",
-    taskGraphRunner: tasks,
+    runner: myRunner,
     cron: { pattern: "*/5 * * * *" },
     logger: customLogger
 });
@@ -396,87 +244,48 @@ If no logger is provided, Clujo will operate silently without logging any events
 
 ## Using Redis for Distributed Locking
 
-When an `ioredis` client is provided, Clujo will use it to acquire a lock for each task execution. This ensures that tasks are not executed concurrently in a distributed environment.
+When running multiple instances of your application, use Redis to ensure only one instance executes a job at a time:
 
 ```typescript
 import Redis from 'ioredis';
 
 const client = new Redis();
 
-new Clujo({
-  id: "myClujoJob",
-  cron: { pattern: "*/5 * * * * *" },
-  taskGraphRunner: tasks,
+const clujo = new Clujo({
+  id: "distributed-job",
+  cron: { pattern: "*/5 * * * *" },
+  runner: myRunner,
   redis: {
-      client,
-      lockOptions: { /* optional redis-semaphore lock options */ }
+    client,
+    lockOptions: {
+      lockTimeout: 30000,    // Lock expires after 30 seconds
+      acquireTimeout: 10000  // Wait up to 10 seconds to acquire lock
+    }
   },
 });
 ```
 
-## Running Tasks on Startup
+## Running on Startup
 
-You can run tasks immediately when the job starts by setting the `runOnStartup` option to `true`.
-The triggered execution will prevent a scheduled execution from running at the same time in the event
-the scheduled execution overlaps with the triggered execution.
+Execute the job immediately when starting, in addition to the scheduled times:
 
 ```typescript
-new Clujo({
-  id: "myClujoJob",
-  cron: { pattern: "*/5 * * * * *" },
-  taskGraphRunner: tasks,
-  runOnStartup: true,
+const clujo = new Clujo({
+  id: "startup-job",
+  cron: { pattern: "0 * * * *" }, // Every hour
+  runner: myRunner,
+  runOnStartup: true  // Also runs immediately when started
 });
 ```
 
-## Error Handling
+## Manual Triggering
 
-Tasks can have their own error handlers, allowing you to define custom logic for handling failures. The function can be synchronous or asynchronous, and has access to the same context as the execute function.
-
-```typescript
-.addTask({
-  id: "taskWithErrorHandler",
-  execute: async (ctx) => {
-    // Task logic that might throw
-    throw new Error("Something went wrong");
-  },
-  errorHandler: async (error, ctx) => {
-    console.error("Task failed:", error);
-    // Access context including results from dependencies
-    console.log("Context at error:", ctx);
-  }
-})
-```
-
-Another way to monitor / act on errors is to make use of the `onTasksCompleted` hook in the `TaskGraph.build` call, i.e.,
+You can manually trigger a job outside of its schedule:
 
 ```typescript
-new TaskGraph()
-    .addTask({
-        id: "task",
-        execute: async (ctx) => {...}
-    })
-    .build({
-        onTasksCompleted: (ctx, errors) => {
-            for (const error of errors) {
-                console.error(`${error.id} failed: ${error.message}`)
-            }
-        },
-    });
-```
-
-## Retry Policy
-
-Specify a retry policy for a task to automatically retry failed executions. The task will be retried up to `maxRetries` times, with a delay of `retryDelayMs` between each retry.
-
-```typescript
-.addTask({
-  id: "taskWithRetry",
-  execute: async (ctx) => {
-    // Task logic
-  },
-  retryPolicy: { maxRetries: 3, retryDelayMs: 1000 }
-})
+// This runs independently of the schedule and any running instances
+const result = await clujo.trigger();
+console.log("Manual execution result:", result);
 ```
 
 # Using the Scheduler
@@ -520,164 +329,97 @@ await scheduler.stop();
 await scheduler.stop(10000);
 ```
 
-# Migrating from v3.x to v4.0
+# Examples
 
-Version 4.0 introduces significant API simplifications. The main change is the removal of the separate `deps` parameter - tasks now receive context directly.
+## Simple Counter
 
-## Key Breaking Changes
-
-### 1. Task Execute Function Signature
 ```typescript
-// Before (v3.x)
-.addTask({
-  id: "myTask",
-  execute: async ({ deps, ctx }) => {
-    const dep1Result = deps.dep1;
-    const initialData = ctx.initialData;
-    return "result";
-  },
-  dependencies: ["dep1"]
-})
+let count = 0;
 
-// After (v4.0)
-.addTask({
-  id: "myTask",
-  execute: async (ctx) => {
-    const dep1Result = ctx.dep1;  // Dependencies are now on context directly
-    const initialData = ctx.initial?.initialData;  // Initial context at ctx.initial
-    return "result";
-  },
-  dependencies: ["dep1"]
-})
+const counter = {
+  trigger: async () => {
+    count++;
+    console.log(`Count is now: ${count}`);
+    return count;
+  }
+};
+
+const clujo = new Clujo({
+  id: "counter",
+  cron: { pattern: "*/10 * * * * *" }, // Every 10 seconds
+  runner: counter
+});
+
+clujo.start();
 ```
 
-### 2. Context Factory Changes
-```typescript
-// Before (v3.x)
-new TaskGraph({
-  contextFactory: async (deps) => {
-    // deps parameter is no longer provided
-    return { data: await fetchData() };
-  }
-})
+## Database Cleanup
 
-// After (v4.0)
-new TaskGraph({
-  contextFactory: async () => {
-    // No deps parameter
-    return { data: await fetchData() };
+```typescript
+const dbCleanup = {
+  trigger: async () => {
+    const db = await getDatabase();
+    const deleted = await db.deleteOldRecords(30); // 30 days old
+    console.log(`Cleaned up ${deleted} old records`);
+    return { deletedCount: deleted, timestamp: new Date() };
   }
-})
+};
+
+const clujo = new Clujo({
+  id: "db-cleanup",
+  cron: { pattern: "0 2 * * *" }, // Daily at 2 AM
+  runner: dbCleanup,
+  redis: { client: redisClient }, // Prevent multiple instances from running
+  logger: {
+    log: (msg) => logger.info(msg),
+    error: (msg) => logger.error(msg),
+    debug: (msg) => logger.debug(msg)
+  }
+});
 ```
 
-### 3. Error Handler Signature
+## With Workflow
+
+Clujo works seamlessly with `@ramplex/workflow` for complex task orchestration:
+
 ```typescript
-// Before (v3.x)
-errorHandler: async (error, { deps, ctx }) => {
-  console.error("Failed with deps:", deps);
-}
+import { Clujo } from '@ramplex/clujo';
+import { Workflow } from '@ramplex/workflow';
 
-// After (v4.0)
-errorHandler: async (error, ctx) => {
-  console.error("Failed with context:", ctx);
-}
-```
-
-### 4. onTasksCompleted Callback
-```typescript
-// Before (v3.x)
-.build({
-  onTasksCompleted: (ctx, deps, errors) => {
-    console.log("Dependencies:", deps);
-  }
-})
-
-// After (v4.0)
-.build({
-  onTasksCompleted: (ctx, errors) => {
-    // No deps parameter
-    console.log("Final context:", ctx);
-  }
-})
-```
-
-### 5. Reserved Task ID
-The task ID `"initial"` is now reserved and cannot be used as a task identifier.
-
-## Migration Steps
-
-1. **Update all task `execute` functions**: Remove destructuring of `{ deps, ctx }` and use `ctx` directly
-2. **Access dependencies from context**: Change `deps.taskId` to `ctx.taskId`
-3. **Access initial context**: Change `ctx.someValue` to `ctx.initial?.someValue`
-4. **Update error handlers**: Remove the `deps` parameter
-5. **Update context factories**: Remove the `deps` parameter
-6. **Update onTasksCompleted**: Remove the `deps` parameter
-7. **Rename any tasks using "initial" as ID**: This is now a reserved keyword
-
-## Complete Migration Example
-
-### Before (v3.x)
-```typescript
-const tasks = new TaskGraph({
-  contextValue: { apiKey: "secret" }
-})
-  .addTask({
-    id: "fetchUser",
-    execute: async ({ ctx }) => {
-      return await api.getUser(ctx.apiKey);
+const workflow = new Workflow()
+  .addNode({
+    id: "fetch",
+    execute: async () => {
+      const data = await fetchData();
+      return data;
     }
   })
-  .addTask({
-    id: "fetchPosts",
-    execute: async ({ deps, ctx }) => {
-      const user = deps.fetchUser;
-      return await api.getUserPosts(user.id, ctx.apiKey);
-    },
-    dependencies: ["fetchUser"],
-    errorHandler: async (error, { deps, ctx }) => {
-      console.error(`Failed to fetch posts for user ${deps.fetchUser.id}`);
-    }
-  })
-  .build({
-    onTasksCompleted: (ctx, deps, errors) => {
-      if (!errors) {
-        console.log("Fetched user:", deps.fetchUser);
-        console.log("Fetched posts:", deps.fetchPosts);
-      }
-    }
-  });
-```
-
-### After (v4.0)
-```typescript
-const tasks = new TaskGraph({
-  contextValue: { apiKey: "secret" }
-})
-  .addTask({
-    id: "fetchUser",
+  .addNode({
+    id: "process",
+    dependencies: ["fetch"],
     execute: async (ctx) => {
-      return await api.getUser(ctx.initial?.apiKey);
+      const processed = await processData(ctx.fetch);
+      return processed;
     }
   })
-  .addTask({
-    id: "fetchPosts",
+  .addNode({
+    id: "save",
+    dependencies: ["process"],
     execute: async (ctx) => {
-      const user = ctx.fetchUser;  // Direct access from context
-      return await api.getUserPosts(user.id, ctx.initial?.apiKey);
-    },
-    dependencies: ["fetchUser"],
-    errorHandler: async (error, ctx) => {
-      console.error(`Failed to fetch posts for user ${ctx.fetchUser.id}`);
+      await saveResults(ctx.process);
+      return { saved: true };
     }
   })
-  .build({
-    onTasksCompleted: (ctx, errors) => {
-      if (!errors) {
-        console.log("Fetched user:", ctx.fetchUser);
-        console.log("Fetched posts:", ctx.fetchPosts);
-      }
-    }
-  });
+  .build();
+
+const clujo = new Clujo({
+  id: "data-pipeline",
+  cron: { pattern: "0 */6 * * *" }, // Every 6 hours
+  runner: workflow,
+  redis: { client: redisClient }
+});
+
+clujo.start();
 ```
 
 # Contributing
@@ -686,4 +428,4 @@ Contributions are welcome! Please describe the contribution in an issue before s
 
 # License
 
-Clujo is [MIT](LICENSE) licensed.
+@ramplex/clujo is [MIT](LICENSE) licensed.

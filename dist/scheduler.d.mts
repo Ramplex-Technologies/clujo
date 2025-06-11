@@ -2,10 +2,6 @@ import { Clujo } from './clujo.mjs';
 import 'croner';
 import 'ioredis';
 import 'redis-semaphore';
-import './task-graph.mjs';
-import './_dependency-map.mjs';
-import './_task.mjs';
-import './error.mjs';
 
 /**
  * Scheduler class for managing and running Clujo jobs.
@@ -19,7 +15,7 @@ declare class Scheduler {
      * @param input.job - The Clujo job to be added.
      * @param input.completionHandler - Optional function to invoke after the job completes.
      */
-    addJob(job: Clujo): void;
+    addJob(job: Clujo<any>): void;
     /**
      * Starts all added jobs in the scheduler.
      *
@@ -36,7 +32,7 @@ declare class Scheduler {
     /**
      * Returns the list of jobs added to the scheduler.
      */
-    get jobs(): Clujo[];
+    get jobs(): Clujo<any>[];
 }
 
 export { Scheduler };

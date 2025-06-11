@@ -31,15 +31,12 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import { Clujo } from "./clujo";
-import { TaskError } from "./error";
+import { Clujo, type IClujoLogger, type IRunner } from "./clujo";
 import { Scheduler } from "./scheduler";
-import { TaskGraph } from "./task-graph";
 
-export { Clujo, Scheduler, TaskError, TaskGraph };
+export { Clujo, Scheduler };
+export type { IClujoLogger, IRunner };
 export default {
     Clujo,
     Scheduler,
-    TaskError,
-    TaskGraph,
 };

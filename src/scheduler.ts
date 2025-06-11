@@ -30,7 +30,8 @@ import type { Clujo } from "./clujo";
  * This class allows adding, starting, and stopping multiple Clujo jobs in a centralized manner.
  */
 export class Scheduler {
-    readonly #jobs: Clujo[] = [];
+    // biome-ignore lint/suspicious/noExplicitAny: want any here
+    readonly #jobs: Clujo<any>[] = [];
 
     /**
      * Adds a Clujo job to the scheduler.
@@ -39,7 +40,8 @@ export class Scheduler {
      * @param input.completionHandler - Optional function to invoke after the job completes.
      */
 
-    addJob(job: Clujo) {
+    // biome-ignore lint/suspicious/noExplicitAny: want any here
+    addJob(job: Clujo<any>) {
         if (this.#jobs.some((addedJob) => addedJob.id === job.id)) {
             throw new Error(`Job with id ${job.id} is already added to the scheduler.`);
         }
@@ -69,7 +71,9 @@ export class Scheduler {
     /**
      * Returns the list of jobs added to the scheduler.
      */
-    get jobs(): Clujo[] {
+
+    // biome-ignore lint/suspicious/noExplicitAny: want any here
+    get jobs(): Clujo<any>[] {
         return this.#jobs;
     }
 }

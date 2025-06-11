@@ -22,9 +22,9 @@
   SOFTWARE.
 -----------------------------------------------------------------------------*/
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
+
 import { Clujo } from "./clujo";
-import { TaskGraph } from "./task-graph";
 
 describe("Clujo", () => {
     describe("constructor validation", () => {
@@ -35,22 +35,22 @@ describe("Clujo", () => {
                         // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
                         id: "" as any,
                         // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
-                        taskGraphRunner: {} as any,
+                        runner: {} as any,
                         cron: { pattern: "* * * * *" },
                     }),
             ).toThrow(/Clujo ID is required/);
         });
 
-        test("throws when taskGraphRunner is not provided", () => {
+        test("throws when runner is not provided", () => {
             expect(
                 () =>
                     new Clujo({
                         id: "test",
                         // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
-                        taskGraphRunner: null as any,
+                        runner: null as any,
                         cron: { pattern: "* * * * *" },
                     }),
-            ).toThrow(/taskGraphRunner is required/);
+            ).toThrow(/runner is required/);
         });
 
         test("throws when cron pattern is not provided", () => {
@@ -58,8 +58,7 @@ describe("Clujo", () => {
                 () =>
                     new Clujo({
                         id: "test",
-                        // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
-                        taskGraphRunner: {} as any,
+                        runner: { trigger: () => {} },
                         cron: { pattern: "" },
                     }),
             ).toThrow(/cron.pattern is required/);
@@ -68,16 +67,13 @@ describe("Clujo", () => {
 
     describe("start method", () => {
         test("throws when already started", () => {
-            const taskGraph = new TaskGraph()
-                .addTask({
-                    id: "task1",
-                    execute: () => Promise.resolve("result"),
-                })
-                .build();
+            const runner = {
+                trigger: () => Promise.resolve("result"),
+            };
 
             const clujo = new Clujo({
                 id: "test",
-                taskGraphRunner: taskGraph,
+                runner: runner,
                 cron: { pattern: "* * * * *" },
             });
 
@@ -89,16 +85,13 @@ describe("Clujo", () => {
 
     describe("stop method", () => {
         test("throws when not started", async () => {
-            const taskGraph = new TaskGraph()
-                .addTask({
-                    id: "task1",
-                    execute: () => Promise.resolve("result"),
-                })
-                .build();
+            const runner = {
+                trigger: () => Promise.resolve("result"),
+            };
 
             const clujo = new Clujo({
                 id: "test",
-                taskGraphRunner: taskGraph,
+                runner: runner,
                 cron: { pattern: "* * * * *" },
             });
 
@@ -106,16 +99,13 @@ describe("Clujo", () => {
         });
 
         test("stops successfully", async () => {
-            const taskGraph = new TaskGraph()
-                .addTask({
-                    id: "task1",
-                    execute: () => Promise.resolve("result"),
-                })
-                .build();
+            const runner = {
+                trigger: () => Promise.resolve({ node1: "result" }),
+            };
 
             const clujo = new Clujo({
                 id: "test",
-                taskGraphRunner: taskGraph,
+                runner: runner,
                 cron: { pattern: "* * * * *" },
             });
 
@@ -125,30 +115,27 @@ describe("Clujo", () => {
     });
 
     describe("trigger method", () => {
-        test("executes task graph and returns context", async () => {
-            const taskGraph = new TaskGraph()
-                .addTask({
-                    id: "task1",
-                    execute: () => Promise.resolve("result1"),
-                })
-                .addTask({
-                    id: "task2",
-                    dependencies: ["task1"],
-                    execute: (ctx) => Promise.resolve(`${ctx.task1}-result2`),
-                })
-                .build();
+        test("executes runner and returns result", async () => {
+            const runner = {
+                trigger: () =>
+                    Promise.resolve({
+                        initial: undefined,
+                        node1: "result1",
+                        node2: "result1-result2",
+                    }),
+            };
 
             const clujo = new Clujo({
                 id: "test",
-                taskGraphRunner: taskGraph,
+                runner: runner,
                 cron: { pattern: "* * * * *" },
             });
 
             const result = await clujo.trigger();
             expect(result).toEqual({
                 initial: undefined,
-                task1: "result1",
-                task2: "result1-result2",
+                node1: "result1",
+                node2: "result1-result2",
             });
         });
     });
@@ -156,19 +143,16 @@ describe("Clujo", () => {
     describe("enabled flag", () => {
         test("is enabled by default", async () => {
             let executionCount = 0;
-            const taskGraph = new TaskGraph()
-                .addTask({
-                    id: "task1",
-                    execute: async () => {
-                        executionCount++;
-                        return "result";
-                    },
-                })
-                .build();
+            const runner = {
+                trigger: async () => {
+                    executionCount++;
+                    return { node1: "result" };
+                },
+            };
 
             const clujo = new Clujo({
                 id: "test",
-                taskGraphRunner: taskGraph,
+                runner: runner,
                 cron: { pattern: "* * * * *" },
                 runOnStartup: true,
             });
@@ -183,15 +167,12 @@ describe("Clujo", () => {
 
         test("respects disabled flag and logs message", async () => {
             let executionCount = 0;
-            const taskGraph = new TaskGraph()
-                .addTask({
-                    id: "task1",
-                    execute: async () => {
-                        executionCount++;
-                        return "result";
-                    },
-                })
-                .build();
+            const runner = {
+                trigger: async () => {
+                    executionCount++;
+                    return { node1: "result" };
+                },
+            };
 
             const logs: string[] = [];
             const logger = {
@@ -202,7 +183,7 @@ describe("Clujo", () => {
 
             const clujo = new Clujo({
                 id: "test",
-                taskGraphRunner: taskGraph,
+                runner: runner,
                 cron: { pattern: "* * * * *" },
                 enabled: false,
                 runOnStartup: true,
@@ -219,18 +200,15 @@ describe("Clujo", () => {
         });
 
         test("validates enabled flag type", () => {
-            const taskGraph = new TaskGraph()
-                .addTask({
-                    id: "task1",
-                    execute: () => Promise.resolve("result"),
-                })
-                .build();
+            const runner = {
+                trigger: () => Promise.resolve({ node1: "result" }),
+            };
 
             expect(
                 () =>
                     new Clujo({
                         id: "test",
-                        taskGraphRunner: taskGraph,
+                        runner: runner,
                         cron: { pattern: "* * * * *" },
                         // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
                         enabled: "true" as any,
@@ -240,19 +218,16 @@ describe("Clujo", () => {
 
         test("trigger executes regardless of enabled flag", async () => {
             let executionCount = 0;
-            const taskGraph = new TaskGraph()
-                .addTask({
-                    id: "task1",
-                    execute: async () => {
-                        executionCount++;
-                        return "result";
-                    },
-                })
-                .build();
+            const runner = {
+                trigger: async () => {
+                    executionCount++;
+                    return { node1: "result" };
+                },
+            };
 
             const clujo = new Clujo({
                 id: "test",
-                taskGraphRunner: taskGraph,
+                runner: runner,
                 cron: { pattern: "* * * * *" },
                 enabled: false,
             });
@@ -262,12 +237,9 @@ describe("Clujo", () => {
         });
 
         test("logs warning when attempting scheduled run while disabled", async () => {
-            const taskGraph = new TaskGraph()
-                .addTask({
-                    id: "task1",
-                    execute: () => Promise.resolve("result"),
-                })
-                .build();
+            const runner = {
+                trigger: () => Promise.resolve({ node1: "result" }),
+            };
 
             const logs: string[] = [];
             const logger = {
@@ -278,7 +250,7 @@ describe("Clujo", () => {
 
             const clujo = new Clujo({
                 id: "test",
-                taskGraphRunner: taskGraph,
+                runner: runner,
                 cron: { pattern: "* * * * *" },
                 enabled: false,
                 runOnStartup: true,
