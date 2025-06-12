@@ -2,7 +2,7 @@
 
   MIT License
 
-  Copyright (c) 2024 Rami Pellumbi
+  Copyright (c) 2025 Ramplex Technologies LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,7 @@ describe("Scheduler Class", () => {
             id: "job1",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-        } as unknown as Clujo<any>;
+        } as unknown as Clujo<unknown>;
 
         scheduler.addJob(mockJob);
 
@@ -49,7 +49,7 @@ describe("Scheduler Class", () => {
             id: "job1",
             start: vi.fn(),
             stop: vi.fn(() => Promise.resolve()),
-        } as unknown as Clujo<any>;
+        } as unknown as Clujo<unknown>;
 
         scheduler.addJob(mockJob);
 

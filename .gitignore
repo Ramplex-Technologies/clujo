@@ -13,5 +13,6 @@ node_modules/
 *.tgz
 
 # Dev settings
+dist/
 .vscode/
 .zed/
