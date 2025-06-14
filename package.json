@@ -43,6 +43,8 @@
     "preinstall": "npx only-allow pnpm",
     "clean": "rimraf dist",
     "build": "pnpm clean && tsup",
+    "publish:npm": "pnpm build && npm publish",
+    "publish:jsr": "pnpm build && npx jsr publish",
     "dev": "tsup --watch",
     "format": "biome format --write ./src",
     "lint": "biome check --write ./src",
