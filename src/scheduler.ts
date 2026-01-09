@@ -37,9 +37,7 @@ export class Scheduler {
      * Adds a Clujo job to the scheduler.
      * @param input - Object containing the job and optional completion handler.
      * @param input.job - The Clujo job to be added.
-     * @param input.completionHandler - Optional function to invoke after the job completes.
      */
-
     // biome-ignore lint/suspicious/noExplicitAny: want any here
     addJob(job: Clujo<any>) {
         if (this.#jobs.some((addedJob) => addedJob.id === job.id)) {
@@ -50,8 +48,6 @@ export class Scheduler {
 
     /**
      * Starts all added jobs in the scheduler.
-     *
-     * @param redis - Optional Redis instance to be passed to the jobs. If provided, enables distributed locking.
      */
     start() {
         for (const job of this.#jobs) {
