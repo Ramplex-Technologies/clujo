@@ -37,6 +37,10 @@ export class Cron {
     #isRunning = false;
 
     constructor(cronExpression: string | Date | (string | Date)[], cronOptions?: CronOptions) {
+        if (Array.isArray(cronExpression) && cronExpression.length === 0) {
+            throw new Error("Cron expression array is empty");
+        }
+
         this.#cronExpression = cronExpression;
         // default to protect mode (prevent overlapping executions) on the same process in the single pattern case
         this.#cronOptions = { protect: true, ...cronOptions };

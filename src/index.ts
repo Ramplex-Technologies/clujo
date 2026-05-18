@@ -34,8 +34,8 @@
 import { Clujo, type IClujoLogger, type IRunner } from "./clujo";
 import { Scheduler } from "./scheduler";
 
-export { Clujo, Scheduler };
 export type { IClujoLogger, IRunner };
+export { Clujo, Scheduler };
 export default {
     Clujo,
     Scheduler,
