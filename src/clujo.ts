@@ -111,7 +111,7 @@ export class Clujo<T> {
         if ("pattern" in cron && !cron.pattern) {
             throw new Error("cron.pattern is required");
         }
-        if ("patterns" in cron && !cron.patterns) {
+        if ("patterns" in cron && (!cron.patterns || !Array.isArray(cron.patterns) || cron.patterns.length === 0)) {
             throw new Error("cron.patterns is required");
         }
         if (enabled && typeof enabled !== "boolean") {
